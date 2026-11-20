@@ -1,0 +1,13 @@
+AYLA'S CLUB — ESTADO DO PROJETO
+
+O que foi ajustado nesta versão:
+- Nome Ayla's Club nas páginas e no painel.
+- Removidos nome Olivia Bianchi e textos de conteúdo adulto/validação 18+.
+- Removidos números e assinantes fictícios do painel.
+- Página começa sem mídias e sem planos ativos para não exibir conteúdo inventado.
+- Textos deixam claro que login, pagamento e upload ainda precisam ser conectados.
+
+IMPORTANTE: esta versão ainda NÃO está pronta para operação pública. O projeto original é um protótipo frontend e usa localStorage. O painel Admin não tem autenticação real; não divulgue o endereço /admin.html até implementarmos a proteção com Supabase Auth + perfil administrador. Uploads ainda não são enviados ao Storage, cadastro/login ainda não autenticam e o gateway ainda não foi integrado.
+
+PRÓXIMO PASSO NECESSÁRIO:
+Enviar o Project URL e a Publishable key do Supabase (a chave pública que começa com sb_publishable_ ou a anon public key antiga). Não enviar service_role, secret key ou senha. As variáveis do Netlify não são automaticamente acessíveis em HTML estático; vamos colocar a configuração pública no arquivo JS do frontend.
