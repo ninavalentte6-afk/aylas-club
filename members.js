@@ -1,41 +1,46 @@
-const user=S.user||{email:'demo@olivia.club',plan:S.selected};
-const plan=S.plans.find(p=>p.id===user.plan)||S.plans[0];
-let f='all',q='',album=null,newOnly=false,ri=0,playing=false;
-$('#si').innerHTML=ic('search');$('#planpill').innerHTML=ic('crown')+'Plano '+esc(plan.name);
-const renew=new Date(Date.now()+42*864e5).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-const nNew=()=>S.media.filter(m=>m.isNew).length;
-$('#app').innerHTML=`<section class="welcome"><div><p class="mut sm">Bem-vindo de volta</p><h1>${nNew()} novidades para você</h1><p class="mut sm">Sua assinatura renova em 42 dias · ${renew}</p></div><button class="btn white" id="news">${ic('play')} Ver novidades</button></section>
-<div class="sec"><h2>${ic('video')} Reels</h2><span class="mut sm">${S.reels.length} vídeos liberados · role para ver o próximo</span></div><div class="reelwrap" id="reel"></div>
-<div class="sec"><h2>Álbuns</h2></div><div class="albums" id="albums"></div>
-<div class="sec" id="gridsec"><h2>Todas as mídias</h2><div class="chips">${[['all','Tudo'],['photo','Fotos'],['video','Vídeos'],['extra','Extras']].map(c=>`<button class="chip ${c[0]==='all'?'on':''}" data-f="${c[0]}">${c[1]}</button>`).join('')}</div></div>
-<div id="active" class="chips" style="margin-bottom:12px"></div><div class="grid4" id="grid" style="padding-bottom:50px"></div>`;
-function drawReel(){const r=S.reels[ri],lk=!!S.liked[r.id],sv=!!S.saved[r.id],nc=80+(S.comments[r.id]||[]).length,nx=[1,2,3,4].map(k=>(ri+k)%S.reels.length);
- $('#reel').innerHTML=`<div class="reel g${ri%8} ${playing?'playing':''}" id="rv" role="button" tabindex="0" aria-label="Reproduzir ou pausar"><div class="bars">${S.reels.slice(0,6).map((_,i)=>`<i class="${i<=ri%6?'on':''}"></i>`).join('')}</div><span class="pbtn">${ic('play','pl')}${ic('pause','pa')}</span><i class="prog"></i>
- <div class="act"><button data-a="like" class="${lk?'on':''}" aria-label="Curtir">${ic('heart')}<span>${fmtK(r.likes+(lk?1:0))}</span></button><button data-a="cm" aria-label="Comentar">${ic('msg')}<span>${nc}</span></button><button data-a="sh" aria-label="Compartilhar">${ic('send')}</button><button data-a="sv" class="${sv?'on':''}" aria-label="Salvar">${ic('mark')}</button></div>
- <div class="cap"><b>Olivia Bianchi</b><p class="sm">${esc(r.title)}</p><p class="sm mut">${ic('music')} Áudio original · ${r.dur}</p></div></div>
- <div class="rnav"><button class="ib" data-n="-1" aria-label="Vídeo anterior">${ic('up')}</button><button class="ib" data-n="1" aria-label="Próximo vídeo">${ic('down')}</button></div>
- <div class="next"><span>Próximos</span><div>${nx.map(i=>`<i class="g${i%8}" data-go="${i}" title="${esc(S.reels[i].title)}"></i>`).join('')}</div></div>`}
-function drawAlbums(){$('#albums').innerHTML=ALBUMS.map((a,i)=>`<button class="alb ${album===a?'on':''}" data-al="${esc(a)}"><div class="cv g${(i*2)%8}">${ic('folder')}</div><b>${a}</b><small class="mut sm">${S.media.filter(m=>m.album===a).length} mídias</small></button>`).join('')}
-function drawGrid(){const it=S.media.filter(m=>(f==='all'||(f==='extra'?m.access==='extra':m.type===f))&&(!album||m.album===album)&&(!newOnly||m.isNew)&&(!q||(m.title+' '+m.album).toLowerCase().includes(q)));
- $$('[data-f]').forEach(c=>c.classList.toggle('on',c.dataset.f===f));
- $('#active').innerHTML=(album?`<button class="chip on" data-clr="album">Álbum: ${esc(album)} ✕</button>`:'')+(newOnly?`<button class="chip on" data-clr="new">Novidades ✕</button>`:'');
- $('#grid').innerHTML=it.length?it.map(m=>{const i=+m.id.slice(1),ex=m.access==='extra',un=!ex||S.unlocked[m.id];
-  return `<div class="tile g${i%8} ${un?'':'dim'}" data-id="${m.id}" role="button" tabindex="0" aria-label="${esc(m.title)}">${m.isNew?'<span class="tag new">NOVO</span>':''}${un?'':`<span class="lock">${ic('lock')}<span class="gold" data-u="${m.id}">Desbloquear ${brl(m.price)}</span></span>`}<span class="ft">${ic(m.type==='video'?'play':'image')}${ex?'Extra':m.type==='video'?m.dur:'Foto'}</span></div>`}).join(''):`<p class="empty">Nenhuma mídia encontrada. Limpe a busca ou os filtros.</p>`}
-function comments(){const r=S.reels[ri],l=S.comments[r.id]||[];const m=modal(`<h2>Comentários</h2><p class="mut sm">${esc(r.title)}</p><div id="cl">${l.length?l.map(c=>`<div class="row"><span><b>${esc(c.a)}</b><br>${esc(c.t)}</span></div>`).join(''):'<p class="empty">Seja o primeiro a comentar.</p>'}</div><form id="cf" style="display:flex;gap:8px;margin-top:12px"><input id="ct" required maxlength="200" placeholder="Escreva um comentário"><button class="btn sm">Enviar</button></form>`);
- $('#cf',m).onsubmit=e=>{e.preventDefault();(S.comments[r.id]=S.comments[r.id]||[]).push({a:'Você',t:$('#ct',m).value});save();closeModal();drawReel();comments()}}
-document.addEventListener('click',e=>{const t=e.target;let el;
- if(el=t.closest('[data-u]')){e.stopPropagation();const m=S.media.find(x=>x.id===el.dataset.u);const md=modal(`<h2>Desbloquear extra</h2><p class="mut" style="margin:6px 0 14px">${esc(m.title)} · ${brl(m.price)}</p><p class="sm mut">Demonstração: nenhuma cobrança é feita.</p><button class="btn full" id="ok" style="margin-top:14px">Confirmar (demonstração)</button>`);$('#ok',md).onclick=()=>{S.unlocked[m.id]=1;save();closeModal();drawGrid();toast('Extra desbloqueado (demonstração).')}}
- else if(el=t.closest('#grid .tile')){const m=S.media.find(x=>x.id===el.dataset.id);if(m.access!=='extra'||S.unlocked[m.id])lightbox(m)}
- else if(el=t.closest('[data-a]')){e.stopPropagation();const a=el.dataset.a,r=S.reels[ri];if(a==='like'){S.liked[r.id]=!S.liked[r.id];save();drawReel()}else if(a==='sv'){S.saved[r.id]=!S.saved[r.id];save();drawReel();toast(S.saved[r.id]?'Reel salvo.':'Removido dos salvos.')}else if(a==='cm')comments();else share()}
- else if(el=t.closest('#rv')){playing=!playing;drawReel()}
- else if(el=t.closest('[data-n]')){ri=(ri+ +el.dataset.n+S.reels.length)%S.reels.length;playing=false;drawReel()}
- else if(el=t.closest('[data-go]')){ri=+el.dataset.go;playing=false;drawReel()}
- else if(el=t.closest('[data-al]')){album=album===el.dataset.al?null:el.dataset.al;drawAlbums();drawGrid();$('#gridsec').scrollIntoView()}
- else if(el=t.closest('[data-f]')){f=el.dataset.f;drawGrid()}
- else if(el=t.closest('[data-clr]')){el.dataset.clr==='album'?album=null:newOnly=false;drawAlbums();drawGrid()}
- else if(t.closest('#news')){newOnly=true;f='all';album=null;drawAlbums();drawGrid();$('#gridsec').scrollIntoView();toast(nNew()+' novidades na galeria.')}
- else if(t.closest('#avb'))$('#menu').hidden=!$('#menu').hidden;
- else if(t.closest('#out')){S.user=null;save();location.href='index.html'}
- else if(!t.closest('#menu'))$('#menu').hidden=true});
-$('#q').addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();drawGrid()});
-drawReel();drawAlbums();drawGrid();
+(async()=>{
+const $id=id=>document.getElementById(id);
+const fmtDate=v=>v?new Date(v).toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}):'Sem data de término definida';
+try{
+ const session=await AYLAS_DB.session();
+ if(!session){$id('app').innerHTML='<div class="card"><h2>Entre na sua conta</h2><p class="mut">Inicie sessão para consultar a sua assinatura e os conteúdos disponíveis.</p><a class="btn" href="index.html">Voltar ao site</a></div>';return;}
+ const {data:subs,error:subErr}=await AYLAS_DB.client.from('subscriptions').select('id,status,current_period_end,plan_id,created_at').eq('user_id',session.user.id).eq('status','active').order('created_at',{ascending:false});
+ if(subErr)throw subErr;
+ const valid=(subs||[]).find(x=>!x.current_period_end||new Date(x.current_period_end)>new Date());
+ if(!valid){$id('app').innerHTML='<div class="card"><h2>Assinatura não ativa</h2><p class="mut">Não encontrámos uma assinatura ativa nesta conta. O acesso será atualizado quando uma confirmação legítima de pagamento for integrada.</p><a class="btn" href="index.html">Voltar ao Ayla’s Club</a></div>';return;}
+ await loadRemoteState();
+ const plan=S.plans.find(p=>p.id===valid.plan_id);
+ const [mediaUrls,reelUrls]=await Promise.all([
+   Promise.all(S.media.filter(m=>m.access!=='extra').map(async m=>({...m,url:await AYLAS_DB.mediaUrl(m).catch(()=>null)}))),
+   Promise.all(S.reels.map(async r=>({...r,url:await AYLAS_DB.mediaUrl(r).catch(()=>null)})))
+ ]);
+ const media=mediaUrls.filter(m=>m.url), reels=reelUrls.filter(r=>r.url);
+ let filter='all',query='',album='';
+ $id('planpill').textContent=plan?`Plano ${plan.name}`:'Assinatura ativa';
+ $id('si').innerHTML=ic('search');
+ const end=valid.current_period_end;
+ $id('app').innerHTML=`
+ <section class="welcome"><div><p class="mut sm">Bem-vinda à área de membros</p><h1>${esc(session.user.user_metadata?.display_name||session.user.email||'Membro')}</h1><p class="mut sm">${plan?`Plano ${esc(plan.name)} · `:''}Estado: ativa · ${end?'Válida até '+fmtDate(end):'Sem data de término registada'}</p></div><span class="pill">Assinatura ativa</span></section>
+ <div class="sec"><h2>${ic('video')} Reels</h2><span class="mut sm">${reels.length} vídeos disponíveis</span></div>
+ <div class="grid3" id="reelgrid">${reels.length?reels.map((r,i)=>`<div class="card"><b>${esc(r.title)}</b><video src="${esc(r.url)}" controls playsinline preload="metadata" style="width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:12px;margin-top:10px;background:#000"></video></div>`).join(''):'<p class="empty">Ainda não existem reels disponíveis.</p>'}</div>
+ <div class="sec" id="gridsec"><h2>Todas as mídias</h2><div class="chips">${[['all','Tudo'],['photo','Fotos'],['video','Vídeos']].map(x=>`<button class="chip ${x[0]==='all'?'on':''}" data-f="${x[0]}">${x[1]}</button>`).join('')}</div></div>
+ <div class="chips" id="albums" style="margin-bottom:12px"></div><div class="grid4" id="grid" style="padding-bottom:50px"></div>`;
+ const albums=[...new Set(media.map(m=>m.album).filter(Boolean))];
+ $id('albums').innerHTML=albums.map(a=>`<button class="chip" data-al="${esc(a)}">${esc(a)}</button>`).join('');
+ function draw(){
+   const rows=media.filter(m=>(filter==='all'||m.type===filter)&&(!album||m.album===album)&&(`${m.title} ${m.album}`.toLowerCase().includes(query)));
+   $$('[data-f]').forEach(b=>b.classList.toggle('on',b.dataset.f===filter));
+   $$('[data-al]').forEach(b=>b.classList.toggle('on',b.dataset.al===album));
+   $id('grid').innerHTML=rows.length?rows.map((m,i)=>`<button class="tile" data-id="${esc(m.id)}" style="background-image:url('${esc(m.url)}');background-size:cover;background-position:center" aria-label="${esc(m.title)}"><span class="ft">${ic(m.type==='video'?'play':'image')}${esc(m.title)}</span></button>`).join(''):'<p class="empty">Nenhuma mídia encontrada.</p>';
+ }
+ document.addEventListener('click',e=>{
+   const f=e.target.closest('[data-f]');if(f){filter=f.dataset.f;draw();return;}
+   const a=e.target.closest('[data-al]');if(a){album=album===a.dataset.al?'':a.dataset.al;draw();return;}
+   const item=e.target.closest('[data-id]');if(item){const m=media.find(x=>x.id===item.dataset.id);if(m)lightbox(m);return;}
+   if(e.target.closest('#avb'))$id('menu').hidden=!$id('menu').hidden;
+   if(e.target.closest('#out'))AYLAS_DB.client.auth.signOut().then(()=>location.href='index.html');
+ });
+ $id('q').addEventListener('input',e=>{query=e.target.value.trim().toLowerCase();draw();});
+ draw();
+}catch(err){console.error(err);$id('app').innerHTML=`<div class="card"><h2>Não foi possível carregar a área de membros</h2><p class="mut">${esc(err.message)}</p></div>`;}
+})();

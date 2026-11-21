@@ -1,1 +1,3 @@
-Coloque aqui vídeos e imagens de demonstração (opcional).
+Ayla's Club — arquivos do projeto.
+
+A pasta de mídias pode ser usada para arquivos locais de referência. O upload definitivo deverá usar o Supabase Storage.

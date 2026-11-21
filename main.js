@@ -1,18 +1,29 @@
-/* Olivia Club — protótipo de frontend. Todos os dados são fictícios e ficam no localStorage do navegador. */
-const KEY='olivia-club-demo-v1';
-const ALBUMS=['Ensaio Verão','Bastidores','Lingerie Rosé','Noite de Gala'];
+/* Ayla's Club — interface ligada ao Supabase. */
+const KEY='aylas-club-state-v1';
+const ALBUMS=['Novidades','Bastidores','Coleção 01','Destaques'];
 const BANNERS=['linear-gradient(110deg,#7a1230,#4b0f55 60%,#0b090d)','linear-gradient(110deg,#b3261e,#f7931e 70%,#3a0d1a)','linear-gradient(110deg,#5b21b6,#c026d3 65%,#0b090d)','linear-gradient(110deg,#be123c,#7e22ce)'];
-const TITLES=['Golden hour','Backstage 01','Luz de janela','Tarde na praia','Making of','Cetim rosé','Extra: set privado','Gala preparação','Close café','Bastidores gala','Espelho','Verão 02','Corredor','Rosé noite','Extra: especial','Final do dia'];
-const pat=[['photo','free'],['video','subs'],['photo','subs'],['photo','free'],['video','subs'],['photo','subs'],['photo','extra'],['photo','subs'],['photo','subs'],['video','subs'],['photo','subs'],['photo','subs'],['video','subs'],['photo','subs'],['photo','extra'],['photo','subs']];
+const TITLES=[];
+const pat=[];
 const DUR=['0:48','0:31','0:34','0:39','0:42'];
-const DEF={name:'Olivia Bianchi',handle:'oliviabianchivip',bio:'Oi, amor! ✨ Eu sou a Olivia. Aqui você encontra meus ensaios exclusivos, bastidores e conteúdos que não publico em nenhum outro lugar. Assine e entre no meu mundo.',
-photos:482,videos:96,likes:'12,4 mil',accent:'#ff3d62',banner:0,selected:'t',heart:false,user:null,
-plans:[{id:'m',name:'Mensal',desc:'Renova a cada 30 dias',price:29.9,months:1,active:true},{id:'t',name:'Trimestral',desc:'3 meses',price:74.9,months:3,active:true,popular:true},{id:'a',name:'Anual',desc:'12 meses',price:249,months:12,active:true}],
-media:pat.map((p,i)=>({id:'m'+i,title:TITLES[i],type:p[0],access:p[1],price:p[1]==='extra'?15:0,album:ALBUMS[i%4],isNew:i<4,dur:p[0]==='video'?DUR[i%5]:''})),
-reels:[12,15,18,21,9,14,11].map((v,i)=>({id:'r'+i,title:['Bastidores do ensaio ✨','Making of verão','Close café','Noite de gala','Cetim rosé','Corredor','Espelho'][i],free:i<3,views:v+'k',dur:'0:'+(15+i*6),likes:2000-i*130})),
+const DEF={name:"Ayla's Club",handle:'aylasclub',bio:'Bem-vindo ao Ayla’s Club! Aqui você encontra novidades, conteúdos exclusivos e atualizações da comunidade.',
+photos:0,videos:0,likes:'—',accent:'#ff3d62',banner:0,selected:'m',heart:false,user:null,
+plans:[{id:'m',name:'Mensal',desc:'Acesso por 30 dias',price:0,months:1,active:false},{id:'t',name:'Trimestral',desc:'Acesso por 3 meses',price:0,months:3,active:false},{id:'a',name:'Anual',desc:'Acesso por 12 meses',price:0,months:12,active:false}],
+media:[],
+reels:[],metrics:[],
 liked:{},saved:{},unlocked:{},comments:{},settings:{maint:false,emails:true,twofa:false}};
-const S=Object.assign(structuredClone(DEF),JSON.parse(localStorage.getItem(KEY)||'{}'));
-const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+const S=structuredClone(DEF);
+const save=()=>{};
+async function loadRemoteState(includeDrafts=false){
+ if(!window.AYLAS_DB) throw new Error(window.AYLAS_DB_ERROR||'Supabase não inicializado.');
+ const r=includeDrafts?await AYLAS_DB.loadAdmin():await AYLAS_DB.load();
+ if(r.settings){S.name=r.settings.name;S.handle=r.settings.handle;S.bio=r.settings.bio;S.accent=r.settings.accent;S.banner=r.settings.banner;}
+ S.plans=r.plans.map(p=>({id:p.id,name:p.name,desc:p.description,price:Number(p.price),months:p.months,active:p.active}));
+ S.metrics=Array.isArray(r.settings?.metrics)?r.settings.metrics:[];
+ S.media=r.media.map(m=>({id:m.id,title:m.title,type:m.type,album:m.album,access:m.access,price:Number(m.price),isNew:m.is_new,published:m.published,sort_order:Number(m.sort_order)||0,dur:'',storage_bucket:m.storage_bucket,storage_path:m.storage_path,url:m.access==='free'&&m.storage_bucket==='aylas-public'?AYLAS_DB.client.storage.from('aylas-public').getPublicUrl(m.storage_path).data.publicUrl:null}));
+ S.reels=r.reels.map(x=>({id:x.id,title:x.title,free:x.is_free,published:x.published,sort_order:Number(x.sort_order)||0,storage_bucket:x.storage_bucket,storage_path:x.storage_path,url:x.is_free&&x.storage_bucket==='aylas-public'?AYLAS_DB.client.storage.from('aylas-public').getPublicUrl(x.storage_path).data.publicUrl:null}));
+ S.photos=S.media.filter(m=>m.type==='photo').length;S.videos=S.media.filter(m=>m.type==='video').length;
+ applyTheme(); return S;
+}
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const brl=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -28,22 +39,20 @@ function closeModal(){$('.mbg')?.remove()}
 function modal(html,big){closeModal();const bg=document.createElement('div');bg.className='mbg';bg.innerHTML=`<div class="modal ${big?'big':''}" role="dialog" aria-modal="true"><button class="x" aria-label="Fechar">✕</button>${html}</div>`;document.body.append(bg);bg.addEventListener('click',e=>{if(e.target===bg||e.target.closest('.x'))closeModal()});return bg.firstElementChild}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('.mbg[data-lock]'))closeModal()});
 function applyTheme(){document.documentElement.style.setProperty('--ac',S.accent)}
-function loginModal(){const m=modal(`<h2>Entrar</h2><p class="mut sm">Demonstração: nenhuma conta real é verificada.</p>
-<form id="lf"><label class="fld">E-mail<input type="email" id="le" required placeholder="voce@email.com"></label><label class="fld">Senha<input type="password" id="lp" required minlength="4"></label>
+function loginModal(){const m=modal(`<h2>Entrar</h2><p class="mut sm">Acesse sua conta Ayla's Club.</p>
+<form id="lf"><label class="fld">E-mail<input type="email" id="le" required placeholder="voce@email.com"></label><label class="fld">Senha<input type="password" id="lp" required minlength="6"></label>
 <div class="err"></div><button class="btn full">Entrar</button></form>
-<button class="link sm" id="forgot" type="button">Esqueci minha senha</button><hr style="border:0;border-top:1px solid var(--line);margin:12px 0"><a class="btn ghost full" href="admin.html">Abrir painel administrativo (demo)</a>`);
- $('#forgot',m).onclick=()=>toast('Demonstração: e-mail de recuperação não é enviado.');
- $('#lf',m).onsubmit=e=>{e.preventDefault();S.user={email:$('#le',m).value,plan:S.selected};save();toast('Entrando na área do assinante…');setTimeout(()=>location.href='membros.html',700)}}
+<button class="link sm" id="forgot" type="button">Esqueci minha senha</button>`);
+ $('#forgot',m).onclick=async()=>{const email=$('#le',m).value.trim();if(!email)return toast('Informe seu e-mail primeiro.');const {error}=await AYLAS_DB.client.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/'});toast(error?error.message:'Enviamos as instruções de recuperação para seu e-mail.');};
+ $('#lf',m).onsubmit=async e=>{e.preventDefault();const b=$('button[type=submit]',m)||$('button',e.target);b.disabled=true;const {data,error}=await AYLAS_DB.client.auth.signInWithPassword({email:$('#le',m).value.trim(),password:$('#lp',m).value});b.disabled=false;if(error){$('.err',m).textContent=error.message;return;}closeModal();try{if(await AYLAS_DB.isAdmin())location.href='admin.html';else location.href='membros.html';}catch(err){toast(err.message);}};}
 function subscribeModal(id){const pl=activePlans();let sel=id||S.selected;if(!pl.find(p=>p.id===sel))sel=pl[0]?.id;
- const m=modal(`<h2>Assinar Olivia Club</h2><p class="mut sm">Demonstração: nenhum pagamento é processado.</p><form id="sf">
+ const m=modal(`<h2>Assinar Ayla's Club</h2><p class="mut sm">Os planos já estão cadastrados. A contratação e a cobrança serão ativadas na integração do gateway.</p><form id="sf">
  ${pl.map(p=>`<label class="plan ${p.id===sel?'on':''}" style="cursor:pointer"><span><b>${esc(p.name)}</b><small class="mut">${planLine(p)}</small></span><span><b>${brl(p.price)}</b><input type="radio" name="pl" value="${p.id}" ${p.id===sel?'checked':''} hidden></span></label>`).join('')}
- <label class="fld">E-mail<input type="email" id="se" required></label><label class="chk"><input type="checkbox" id="sa" required> Tenho 18 anos ou mais e aceito os Termos e a Política de Privacidade.</label>
- <div class="err"></div><button class="btn full">Continuar (demonstração)</button></form>`);
+ <label class="fld">E-mail<input type="email" id="se" required></label><label class="chk"><input type="checkbox" id="sa" required> Li e aceito os Termos e a Política de Privacidade.</label>
+ <div class="err"></div><button class="btn full">Continuar</button></form>`);
  $$('.plan',m).forEach(l=>l.onclick=()=>{$$('.plan',m).forEach(x=>x.classList.remove('on'));l.classList.add('on');$('input',l).checked=true});
- $('#sf',m).onsubmit=e=>{e.preventDefault();const p=$('input[name=pl]:checked',m)?.value;S.user={email:$('#se',m).value,plan:p};S.selected=p;save();toast('Demonstração: acesso simulado, sem cobrança.');setTimeout(()=>location.href='membros.html',900)}}
-function ageGate(){if(sessionStorage.getItem('age18'))return;const m=modal(`<h2>Conteúdo para maiores de 18 anos</h2><p class="mut" style="margin:8px 0 18px">Este site contém material adulto. Confirme que você tem 18 anos ou mais para continuar.</p><button class="btn full" id="y">Tenho 18 anos ou mais</button><a class="btn ghost full" style="margin-top:8px" href="https://www.google.com">Sair</a>`);
- $('.x',m).remove();const bg=$('.mbg');bg.replaceWith(bg.cloneNode(true));$('.mbg').dataset.lock=1;const m2=$('.modal');$('#y',m2).onclick=()=>{sessionStorage.setItem('age18','1');closeModal()}}
-function lightbox(it){modal(`<h2>${esc(it.title)}</h2><p class="mut sm">${esc(it.album||'')} ${it.dur?'· '+it.dur:''}</p><div class="lb g${(+it.id.slice(1))%8}" style="aspect-ratio:3/4;font-size:42px">${ic(it.type==='video'?'play':'image')}</div>`)}
-function share(){navigator.clipboard?.writeText(location.href).catch(()=>{});toast('Link copiado (demonstração).')}
-document.addEventListener('click',e=>{if(e.target.closest('[data-login]'))loginModal();const s=e.target.closest('[data-subscribe]');if(s)subscribeModal(s.dataset.subscribe||null);const t=e.target.closest('[data-t]');if(t){e.preventDefault();modal(`<h2>${t.dataset.t}</h2><p class="mut" style="margin-top:8px">Texto de demonstração. Substitua pelo documento jurídico real antes de publicar.</p>`)}});
+ $('#sf',m).onsubmit=e=>{e.preventDefault();const p=$('input[name=pl]:checked',m)?.value;toast('A contratação ainda não está disponível. O gateway será conectado na próxima etapa.');}}
+function lightbox(it){const media=it.url?(it.type==='video'?`<video src="${esc(it.url)}" controls playsinline style="width:100%;max-height:70vh;border-radius:12px;background:#000"></video>`:`<img src="${esc(it.url)}" alt="${esc(it.title)}" style="width:100%;max-height:70vh;object-fit:contain;border-radius:12px">`):`<div class="lb" style="aspect-ratio:3/4;font-size:42px">${ic(it.type==='video'?'play':'image')}</div>`;modal(`<h2>${esc(it.title)}</h2><p class="mut sm">${esc(it.album||'')} ${it.dur?'· '+it.dur:''}</p>${media}`,true)}
+function share(){navigator.clipboard?.writeText(location.href).catch(()=>{});toast('Link copiado.')}
+document.addEventListener('click',e=>{if(e.target.closest('[data-login]'))loginModal();const s=e.target.closest('[data-subscribe]');if(s)subscribeModal(s.dataset.subscribe||null);const t=e.target.closest('[data-t]');if(t){e.preventDefault();modal(`<h2>${t.dataset.t}</h2><p class="mut" style="margin-top:8px">Documento em preparação. Adicione aqui os Termos e a Política de Privacidade antes da publicação.</p>`)}});
 applyTheme();

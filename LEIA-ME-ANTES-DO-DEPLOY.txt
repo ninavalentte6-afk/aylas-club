@@ -1,0 +1,10 @@
+AYLA'S CLUB — NOTA DE PUBLICAÇÃO
+
+Consulte o README.md para os passos atualizados de configuração e publicação.
+
+IMPORTANTE:
+- Não execute novamente SUPABASE-SETUP.sql numa base de dados já existente.
+- Execute SUPABASE-SECURITY-HARDENING.sql uma vez no SQL Editor do Supabase.
+- Confirme a chave publishable em js/config.js.
+- Nunca coloque service_role/secret key no frontend.
+- O gateway de pagamento e os webhooks continuam pendentes.
