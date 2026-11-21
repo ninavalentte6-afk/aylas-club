@@ -38,9 +38,12 @@ const DB={client:C,pub,makePreview,norm,
   if(priv.length){const d=ok(await C.storage.from('aylas-private').createSignedUrls(priv.map(r=>r.storage_path),3600));d.forEach((x,i)=>{if(x.signedUrl)out[priv[i].id]=x.signedUrl})}return out},
  async urlFor(r){if(r.url)return r.url;const x=await this.urls([r]);return x[r.id]},
  async createLead(p){ok(await C.from('leads').insert({email:String(p.email).trim().toLowerCase(),source:p.source||'subscription_interest',plan_id:p.plan_id||null,media_id:p.media_id||null,consent_at:new Date().toISOString(),status:'new'}))},
- async checkout(payload){const {data}=await C.auth.getSession();if(!data.session)return {needLogin:true};
-  try{const r=await fetch('/.netlify/functions/create-checkout',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+data.session.access_token},body:JSON.stringify(payload)});
+ async checkout(payload){const {data}=await C.auth.getSession();
+  try{const r=await fetch('/.netlify/functions/create-checkout',{method:'POST',headers:{'content-type':'application/json',...(data.session?{authorization:'Bearer '+data.session.access_token}:{})},body:JSON.stringify(payload)});
    if(r.status===501||r.status===404)return {notConfigured:true};const j=await r.json();if(!r.ok)throw new Error(j.error||'Falha no checkout');return j}catch(e){if(e instanceof TypeError)return {notConfigured:true};throw e}},
+ async claimPurchases(){const {data}=await C.auth.getSession();if(!data.session)return null;
+  const r=await fetch('/.netlify/functions/claim-purchases',{method:'POST',headers:{authorization:'Bearer '+data.session.access_token}});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Não foi possível verificar suas compras.');return j},
  // ---- admin: gestão de mídia ----
  async list(table){return (ok(await C.from(table).select('*').order('sort_order').order('created_at',{ascending:false}))||[]).map(norm)},
  async upload(bucket,path,blob,type){ok(await C.storage.from(bucket).upload(path,blob,{upsert:false,contentType:type||blob.type}))},

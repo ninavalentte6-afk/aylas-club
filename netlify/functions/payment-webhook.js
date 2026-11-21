@@ -24,7 +24,12 @@ async function markCheckoutPaid(session) {
     return;
   }
   if (session.payment_status !== 'paid') return;
-  await setOrder(md.order_id, { status: 'paid', paid_at: new Date().toISOString(), provider_ref: session.id });
+  const guestEmail = String(session.customer_details?.email || session.customer_email || '').trim().toLowerCase();
+  if (!md.user_id && !guestEmail) throw new Error('Checkout sem email para reivindicar compra convidada.');
+  await setOrder(md.order_id, { status: 'paid', paid_at: new Date().toISOString(), provider_ref: session.id,
+    ...(!md.user_id ? { guest_email: guestEmail } : {}) });
+  // Compras sem login são vinculadas à conta somente após o email confirmado.
+  if (!md.user_id) return;
   // Compra única: vitalício ou período fixo (Pix), sem renovação.
   if (md.kind === 'subscription' && md.plan_id && md.user_id) {
     const pi = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
@@ -34,7 +39,7 @@ async function markCheckoutPaid(session) {
     if (existing[0]) return; // Idempotência: não estende o prazo em reenvios do webhook.
     const planRows = await sbGet('plans', { id: `eq.${md.plan_id}` }, 'id,months', { limit: '1' });
     if (!planRows[0]) throw new Error('Plano pago não encontrado para ativação.');
-    const months = Number(planRows[0].months);
+    const months = Number(md.months || planRows[0].months);
     if (!Number.isInteger(months) || months < 1) throw new Error('Duração do plano inválida.');
     let end = null;
     if (months < 9999) {
@@ -104,8 +109,12 @@ async function handleRefund(charge) {
   }
   if (!order) return;
   await setOrder(order.id, { status: 'refunded', refunded_at: new Date().toISOString() });
-  if (order.kind === 'subscription' && paymentIntent) {
-    await sbPatch('subscriptions', { provider: 'eq.stripe', provider_ref: `eq.${paymentIntent}` }, { status: 'expired' });
+  if (order.kind === 'subscription') {
+    // Compras autenticadas usam payment_intent; convidadas são vinculadas pelo checkout.session.
+    const refs = [paymentIntent, order.provider_ref].filter(Boolean);
+    for (const ref of new Set(refs)) {
+      await sbPatch('subscriptions', { provider: 'eq.stripe', provider_ref: `eq.${ref}` }, { status: 'expired' });
+    }
   }
 }
 async function processEvent(event) {
@@ -114,6 +123,8 @@ async function processEvent(event) {
     case 'checkout.session.completed':
     case 'checkout.session.async_payment_succeeded':
       await markCheckoutPaid(obj); break;
+    case 'checkout.session.async_payment_failed':
+      await setOrder(obj.metadata?.order_id, { status: 'failed' }); break;
     case 'checkout.session.expired': {
       const rows = await sbGet('orders', { id: `eq.${obj.metadata?.order_id || ''}` }, 'status', { limit: '1' });
       if (rows[0] && rows[0].status !== 'paid') await setOrder(obj.metadata?.order_id, { status: 'canceled' });

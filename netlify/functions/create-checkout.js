@@ -1,7 +1,7 @@
 'use strict';
 const {
-  json, parseBody, requiredEnv, siteUrl, sbGet, sbInsert, sbPatch, authenticate,
-  stripeRequest, moneyToCents, ensurePlanPrice
+  json, parseBody, getHeader, siteUrl, sbGet, sbInsert, sbPatch, authenticate,
+  stripeRequest, moneyToCents
 } = require('./lib/shared');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -10,7 +10,8 @@ exports.handler = async event => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
   let order = null;
   try {
-    const user = await authenticate(event);
+    // Guest checkout: Stripe recolhe o email; a conta é vinculada depois da compra.
+    const user = getHeader(event, 'authorization') ? await authenticate(event) : null;
     const body = parseBody(event);
     const kind = body.kind;
     if (!['subscription', 'extra'].includes(kind)) return json(400, { error: 'Tipo de compra inválido.' });
@@ -36,20 +37,21 @@ exports.handler = async event => {
     }
 
     order = await sbInsert('orders', {
-      user_id: user.id,
+      user_id: user?.id || null,
       kind,
       plan_id: plan?.id || null,
       media_id: media?.id || null,
       amount,
       currency: 'BRL',
       status: 'pending',
+      purchased_months: plan ? Number(plan.months) : null,
       provider: 'stripe'
     });
     if (!order?.id) throw new Error('Não foi possível registrar o pedido.');
 
     const metadata = {
       order_id: String(order.id),
-      user_id: String(user.id),
+      ...(user ? { user_id: String(user.id) } : {}),
       kind,
       ...(plan ? { plan_id: String(plan.id), months: String(plan.months), payment_method: 'one_time' } : {}),
       ...(media ? { media_id: String(media.id) } : {})
@@ -58,14 +60,14 @@ exports.handler = async event => {
       mode,
       success_url: `${baseUrl}/membros.html?checkout=success&session_id={CHECKOUT_SESSION_ID}#acc`,
       cancel_url: `${baseUrl}/membros.html?checkout=cancelled#acc`,
-      client_reference_id: String(user.id),
+      ...(user ? { client_reference_id: String(user.id) } : {}),
       locale: 'pt-BR',
       'metadata[order_id]': metadata.order_id,
-      'metadata[user_id]': metadata.user_id,
       'metadata[kind]': metadata.kind,
       'line_items[0][quantity]': '1'
     };
-    if (user.email) params.customer_email = user.email;
+    if (user?.email) params.customer_email = user.email;
+    if (metadata.user_id) params['metadata[user_id]'] = metadata.user_id;
     if (metadata.plan_id) params['metadata[plan_id]'] = metadata.plan_id;
     if (metadata.media_id) params['metadata[media_id]'] = metadata.media_id;
     if (metadata.months) params['metadata[months]'] = metadata.months;

@@ -1,15 +1,9 @@
-# Ayla’s Club — Checkout Pix (sandbox)
+# Arquivo histórico — versões 2.0 Pix
 
-## Instalação
-1. Suba os arquivos deste ZIP no repositório e aguarde o deploy da Netlify. Nenhuma migração SQL é necessária para este recurso.
-2. Confirme que Pix está habilitado na conta Stripe correta e que a moeda BRL está disponível.
-3. No Stripe, confira os eventos enviados ao webhook: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `charge.refunded`.
-4. Teste cartão recorrente (Mensal e Semestral), Pix Mensal, Pix Semestral e Pix Vitalício, inclusive pagamento pendente, expirado e confirmado.
-5. Confirme no Supabase que `orders.status` muda para `paid` somente após confirmação e que `subscriptions.current_period_end` é preenchido para Pix mensal/semestral e nulo para vitalício.
-6. Para produção, configure chaves live, webhook live e segredo novo, e verifique que a conta Stripe permite Pix live. Não reutilize IDs de preços de teste: `plans.provider_price_id` deve apontar para preços da conta live (recriados automaticamente ao primeiro checkout).
+Este arquivo foi mantido por compatibilidade histórica, mas as instruções antigas foram substituídas.
 
-## Atenção
-- Não foi executado teste real na Stripe nem no Supabase: valide o fluxo ponta a ponta no sandbox antes de aceitar pagamentos reais.
-- O prazo de Pix mensal/semestral é calculado em meses de calendário a partir da confirmação.
-- Reembolsos são tratados pelo webhook existente, mas o tratamento de reembolso parcial e outras operações financeiras merece teste adicional.
-- O Pix só aparece quando a Stripe habilita o método para aquela sessão/conta.
+**Use `README.md`, `GO-LIVE-STRIPE.md` e `AYLAS-CLUB-3.0-MIGRACAO-PIX-CONVIDADO.sql` para instalar a versão atual.**
+
+Na versão 3.0, as novas compras Mensal, Semestral e Vitalício são pagamentos únicos (Pix ou cartão, de acordo com as formas de pagamento elegíveis da Stripe). Os fluxos recorrentes legados seguem preservados para quem já possui assinatura.
+
+O novo checkout aceita visitante, e a compra só é liberada depois da confirmação do pagamento e da vinculação ao e-mail verificado da conta.
