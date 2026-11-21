@@ -1,4 +1,14 @@
-const user=S.user||{email:'',plan:S.selected};
+(async()=>{
+ try{
+  const session=await AYLAS_DB.session();
+  if(!session){$('#app').innerHTML='<div class="card"><h2>Entre na sua conta</h2><p class="mut">Faça login para acessar a área de membros.</p><a class="btn" href="index.html">Voltar e entrar</a></div>';return;}
+  await loadRemoteState();
+  const {data:subs,error}=await AYLAS_DB.client.from('subscriptions').select('id,status,current_period_end,plan_id').eq('user_id',session.user.id).eq('status','active').order('created_at',{ascending:false}).limit(1);
+  if(error)throw error;
+  if(!subs?.length){$('#app').innerHTML=`<div class="card"><h2>Assinatura não encontrada</h2><p class="mut">Sua conta ainda não possui uma assinatura ativa. A liberação automática será ativada junto ao gateway de pagamento.</p><a class="btn" href="index.html">Voltar ao Ayla's Club</a></div>`;return;}
+  for(const m of S.media){try{m.url=await AYLAS_DB.mediaUrl(m);}catch(e){m.url=null;}}
+  for(const r of S.reels){try{r.url=await AYLAS_DB.mediaUrl(r);}catch(e){r.url=null;}}
+const user={email:session.user.email,plan:S.selected};
 const plan=S.plans.find(p=>p.id===user.plan)||S.plans[0];
 let f='all',q='',album=null,newOnly=false,ri=0,playing=false;
 $('#si').innerHTML=ic('search');$('#planpill').innerHTML=ic('crown')+'Plano '+esc(plan.name);
@@ -39,3 +49,4 @@ document.addEventListener('click',e=>{const t=e.target;let el;
  else if(!t.closest('#menu'))$('#menu').hidden=true});
 $('#q').addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();drawGrid()});
 drawReel();drawAlbums();drawGrid();
+}catch(err){console.error(err);$('#app').innerHTML='<div class="card"><h2>Não foi possível carregar sua área</h2><p class="mut">'+esc(err.message)+'</p></div>';}})();

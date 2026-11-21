@@ -13,6 +13,16 @@ reels:[],
 liked:{},saved:{},unlocked:{},comments:{},settings:{maint:false,emails:true,twofa:false}};
 const S=Object.assign(structuredClone(DEF),JSON.parse(localStorage.getItem(KEY)||'{}'));
 const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+async function loadRemoteState(){
+ if(!window.AYLAS_DB) throw new Error(window.AYLAS_DB_ERROR||'Supabase não inicializado.');
+ const r=await AYLAS_DB.load();
+ if(r.settings){S.name=r.settings.name;S.handle=r.settings.handle;S.bio=r.settings.bio;S.accent=r.settings.accent;S.banner=r.settings.banner;}
+ S.plans=r.plans.map(p=>({id:p.id,name:p.name,desc:p.description,price:Number(p.price),months:p.months,active:p.active}));
+ S.media=r.media.map(m=>({id:m.id,title:m.title,type:m.type,album:m.album,access:m.access,price:Number(m.price),isNew:m.is_new,dur:'',storage_bucket:m.storage_bucket,storage_path:m.storage_path,url:m.storage_bucket==='aylas-public'?AYLAS_DB.client.storage.from('aylas-public').getPublicUrl(m.storage_path).data.publicUrl:null}));
+ S.reels=r.reels.map(x=>({id:x.id,title:x.title,free:x.is_free,views:'',dur:'',storage_bucket:x.storage_bucket,storage_path:x.storage_path,url:x.storage_bucket==='aylas-public'?AYLAS_DB.client.storage.from('aylas-public').getPublicUrl(x.storage_path).data.publicUrl:null}));
+ S.photos=S.media.filter(m=>m.type==='photo').length;S.videos=S.media.filter(m=>m.type==='video').length;
+ applyTheme(); return S;
+}
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const brl=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -28,20 +38,20 @@ function closeModal(){$('.mbg')?.remove()}
 function modal(html,big){closeModal();const bg=document.createElement('div');bg.className='mbg';bg.innerHTML=`<div class="modal ${big?'big':''}" role="dialog" aria-modal="true"><button class="x" aria-label="Fechar">✕</button>${html}</div>`;document.body.append(bg);bg.addEventListener('click',e=>{if(e.target===bg||e.target.closest('.x'))closeModal()});return bg.firstElementChild}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('.mbg[data-lock]'))closeModal()});
 function applyTheme(){document.documentElement.style.setProperty('--ac',S.accent)}
-function loginModal(){const m=modal(`<h2>Entrar</h2><p class="mut sm">A autenticação será ativada na integração com Supabase.</p>
-<form id="lf"><label class="fld">E-mail<input type="email" id="le" required placeholder="voce@email.com"></label><label class="fld">Senha<input type="password" id="lp" required minlength="4"></label>
+function loginModal(){const m=modal(`<h2>Entrar</h2><p class="mut sm">Acesse sua conta Ayla's Club.</p>
+<form id="lf"><label class="fld">E-mail<input type="email" id="le" required placeholder="voce@email.com"></label><label class="fld">Senha<input type="password" id="lp" required minlength="6"></label>
 <div class="err"></div><button class="btn full">Entrar</button></form>
-<button class="link sm" id="forgot" type="button">Esqueci minha senha</button><hr style="border:0;border-top:1px solid var(--line);margin:12px 0"><a class="btn ghost full" href="admin.html">Painel administrativo</a>`);
- $('#forgot',m).onclick=()=>toast('A recuperação de senha será ativada com o Supabase.');
- $('#lf',m).onsubmit=e=>{e.preventDefault();toast('O login ainda precisa ser conectado ao Supabase.');}}
+<button class="link sm" id="forgot" type="button">Esqueci minha senha</button>`);
+ $('#forgot',m).onclick=async()=>{const email=$('#le',m).value.trim();if(!email)return toast('Informe seu e-mail primeiro.');const {error}=await AYLAS_DB.client.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/'});toast(error?error.message:'Enviamos as instruções de recuperação para seu e-mail.');};
+ $('#lf',m).onsubmit=async e=>{e.preventDefault();const b=$('button[type=submit]',m)||$('button',e.target);b.disabled=true;const {data,error}=await AYLAS_DB.client.auth.signInWithPassword({email:$('#le',m).value.trim(),password:$('#lp',m).value});b.disabled=false;if(error){$('.err',m).textContent=error.message;return;}closeModal();try{if(await AYLAS_DB.isAdmin())location.href='admin.html';else location.href='membros.html';}catch(err){toast(err.message);}};}
 function subscribeModal(id){const pl=activePlans();let sel=id||S.selected;if(!pl.find(p=>p.id===sel))sel=pl[0]?.id;
- const m=modal(`<h2>Assinar Ayla's Club</h2><p class="mut sm">Os pagamentos serão ativados após a integração do gateway.</p><form id="sf">
+ const m=modal(`<h2>Assinar Ayla's Club</h2><p class="mut sm">Os planos já estão cadastrados. A contratação e a cobrança serão ativadas na integração do gateway.</p><form id="sf">
  ${pl.map(p=>`<label class="plan ${p.id===sel?'on':''}" style="cursor:pointer"><span><b>${esc(p.name)}</b><small class="mut">${planLine(p)}</small></span><span><b>${brl(p.price)}</b><input type="radio" name="pl" value="${p.id}" ${p.id===sel?'checked':''} hidden></span></label>`).join('')}
  <label class="fld">E-mail<input type="email" id="se" required></label><label class="chk"><input type="checkbox" id="sa" required> Li e aceito os Termos e a Política de Privacidade.</label>
  <div class="err"></div><button class="btn full">Continuar</button></form>`);
  $$('.plan',m).forEach(l=>l.onclick=()=>{$$('.plan',m).forEach(x=>x.classList.remove('on'));l.classList.add('on');$('input',l).checked=true});
- $('#sf',m).onsubmit=e=>{e.preventDefault();const p=$('input[name=pl]:checked',m)?.value;toast('O cadastro e a assinatura serão ativados após conectar autenticação e pagamentos.');}}
-function lightbox(it){modal(`<h2>${esc(it.title)}</h2><p class="mut sm">${esc(it.album||'')} ${it.dur?'· '+it.dur:''}</p><div class="lb g${(+it.id.slice(1))%8}" style="aspect-ratio:3/4;font-size:42px">${ic(it.type==='video'?'play':'image')}</div>`)}
+ $('#sf',m).onsubmit=e=>{e.preventDefault();const p=$('input[name=pl]:checked',m)?.value;toast('A contratação ainda não está disponível. O gateway será conectado na próxima etapa.');}}
+function lightbox(it){const media=it.url?(it.type==='video'?`<video src="${esc(it.url)}" controls playsinline style="width:100%;max-height:70vh;border-radius:12px;background:#000"></video>`:`<img src="${esc(it.url)}" alt="${esc(it.title)}" style="width:100%;max-height:70vh;object-fit:contain;border-radius:12px">`):`<div class="lb" style="aspect-ratio:3/4;font-size:42px">${ic(it.type==='video'?'play':'image')}</div>`;modal(`<h2>${esc(it.title)}</h2><p class="mut sm">${esc(it.album||'')} ${it.dur?'· '+it.dur:''}</p>${media}`,true)}
 function share(){navigator.clipboard?.writeText(location.href).catch(()=>{});toast('Link copiado.')}
 document.addEventListener('click',e=>{if(e.target.closest('[data-login]'))loginModal();const s=e.target.closest('[data-subscribe]');if(s)subscribeModal(s.dataset.subscribe||null);const t=e.target.closest('[data-t]');if(t){e.preventDefault();modal(`<h2>${t.dataset.t}</h2><p class="mut" style="margin-top:8px">Documento em preparação. Adicione aqui os Termos e a Política de Privacidade antes da publicação.</p>`)}});
 applyTheme();

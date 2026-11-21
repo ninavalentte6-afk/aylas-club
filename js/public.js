@@ -1,11 +1,11 @@
 
 let filter='all';
-const tile=(m,i)=>`<div class="tile g${i%8} ${m.access!=='free'?'dim':''}" data-id="${m.id}" role="button" tabindex="0" aria-label="${esc(m.title)}">${m.access==='free'?`<span class="tag pre">${ic('image')}Prévia grátis</span>`:m.type==='video'?`<span class="tag pre">${ic('play')}${m.dur}</span>`:''}${m.access!=='free'?`<span class="lock">${ic('lock')}</span>`:''}</div>`;
+const tile=(m,i)=>`<div class="tile g${i%8} ${m.access!=='free'?'dim':''}" data-id="${m.id}" role="button" tabindex="0" aria-label="${esc(m.title)}" ${m.url?`style="background-image:url('${esc(m.url)}');background-size:cover;background-position:center"`:''}>${m.access==='free'?`<span class="tag pre">${ic('image')}Prévia grátis</span>`:m.type==='video'?`<span class="tag pre">${ic('play')}${m.dur}</span>`:''}${m.access!=='free'?`<span class="lock">${ic('lock')}</span>`:''}</div>`;
 function render(){
  const pl=activePlans(),sel=pl.find(p=>p.id===S.selected)||pl[0];if(!sel){$('#app').innerHTML='<p class="empty">Nenhum plano ativo. Ative um plano no painel administrativo.</p>';return}
  const items=S.media.slice(0,6).filter(m=>filter==='all'||m.type===filter),free=S.reels.filter(r=>r.free).length,total=S.photos+S.videos;
  $('#app').innerHTML=`<div class="cover" style="background:${BANNERS[S.banner]}"></div>
- <div class="prof"><div class="avatar" aria-label="Foto de perfil">OB</div><div class="pinfo"><h1>${esc(S.name)} ${ic('badge','verified')}</h1><p class="mut sm">@${esc(S.handle)} · <span class="online">● online agora</span></p></div>
+ <div class="prof"><div class="avatar" aria-label="Foto de perfil">AC</div><div class="pinfo"><h1>${esc(S.name)} ${ic('badge','verified')}</h1><p class="mut sm">@${esc(S.handle)} · <span class="online">● online agora</span></p></div>
  <div class="pact"><button class="ib ${S.heart?'on':''}" id="heart" aria-label="Favoritar">${ic('heart')}</button><button class="ib" id="share" aria-label="Compartilhar">${ic('share')}</button><button class="btn" data-subscribe="${sel.id}">Assinar a partir de ${brl(fromPrice())}/mês</button></div></div>
  <div class="cols"><div>
   <div class="card"><p>${esc(S.bio)}</p><div class="stats"><div><b>${S.photos}</b><span>Fotos</span></div><div><b>${S.videos}</b><span>Vídeos</span></div><div><b>${esc(S.likes)}</b><span>Curtidas</span></div></div></div>
@@ -27,4 +27,4 @@ $('#app').addEventListener('click',e=>{const t=e.target;let el;
  else if(t.closest('#heart')){S.heart=!S.heart;save();render();toast(S.heart?'Perfil favoritado.':'Removido dos favoritos.')}
  else if(t.closest('#share'))share()});
 const sel=()=>S.selected;
-render();
+loadRemoteState().then(render).catch(err=>{console.error(err);$('#app').innerHTML=`<div class="card"><h2>Estamos preparando o Ayla's Club</h2><p class="mut">Não foi possível carregar os dados. Confira a configuração do Supabase e tente novamente.</p></div>`;});
