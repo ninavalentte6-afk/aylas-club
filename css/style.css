@@ -240,3 +240,36 @@ body{background:var(--bg);color:var(--tx)}
 .member-tile>img,.member-tile>video,.tile-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .member-tile .ft{z-index:2;background:linear-gradient(transparent,rgba(0,0,0,.78));padding:30px 10px 10px;text-align:left;white-space:normal}
 .tile-video{z-index:0}
+
+
+/* Ajustes de consistência visual e responsividade */
+.tile > .lock{
+  top:12px; left:12px; right:auto; bottom:auto;
+  transform:none; display:inline-flex; width:max-content;
+  max-width:calc(100% - 24px); min-height:30px;
+  align-items:center; justify-content:center; gap:6px;
+  padding:7px 11px; border-radius:999px;
+  white-space:normal; overflow-wrap:anywhere;
+  line-height:1.2; text-align:center;
+}
+.tile > .locked-copy{
+  left:12px; right:12px; bottom:12px;
+  width:auto; max-width:calc(100% - 24px);
+  min-height:0; padding:12px 14px;
+  border-radius:16px; display:flex;
+  flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; line-height:1.25; overflow-wrap:anywhere;
+  background:linear-gradient(110deg,rgba(225,35,105,.96),rgba(126,38,164,.96));
+}
+.tile > .locked-copy b{font-size:clamp(16px,3.5vw,21px);line-height:1.15}
+.tile > .locked-copy small{font-size:clamp(11px,2.6vw,14px);margin:0}
+.welcome{background:linear-gradient(110deg,#4d142d,#32133d 68%,#211126);align-items:flex-start}
+.welcome-copy{min-width:0;flex:1}
+.welcome h1{font-size:clamp(21px,4vw,30px);line-height:1.2;overflow-wrap:anywhere;margin:5px 0}
+.member-email{font-size:12px;overflow-wrap:anywhere;margin:4px 0 8px}
+.top .logo{max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:600px){
+  .tile > .lock{font-size:10px;padding:6px 9px}
+  .tile > .locked-copy{left:8px;right:8px;bottom:8px;padding:9px 8px}
+  .welcome{padding:18px 16px}
+}

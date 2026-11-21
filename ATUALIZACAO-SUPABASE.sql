@@ -1,3 +1,6 @@
+-- AVISO: ARQUIVO HISTÓRICO. NÃO EXECUTAR na base atual: pode criar políticas permissivas incompatíveis.
+-- Consulte AYLAS-CLUB-MIGRACAO-COMPATIVEL.sql para a migração da versão atual.
+
 -- AYLA'S CLUB | Atualização funcional: catálogo, métricas e ordenação
 -- Idempotente: pode ser executado mais de uma vez. Não apaga nem reescreve registos.
 -- Execute no Supabase SQL Editor ANTES de publicar esta versão.

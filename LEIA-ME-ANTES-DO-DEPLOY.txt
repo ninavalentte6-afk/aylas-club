@@ -1,15 +1,11 @@
-AYLA'S CLUB — REVISÃO DO PROJETO EXISTENTE
+AYLA'S CLUB — LEIA ANTES DE PUBLICAR
 
-1. Faça backup do repositório, banco de dados e ficheiros do Storage.
-2. Confirme que o setup Supabase original já foi executado e que existem profiles, site_settings, plans, media, reels, subscriptions e os buckets aylas-public/aylas-private.
-3. Execute AYLAS-CLUB-MIGRACAO-ULTRA.sql no Supabase SQL Editor.
-4. Verifique os resultados de diagnóstico no final da migração. Mova ficheiros exclusivos que estejam no bucket público.
-5. Substitua os ficheiros do repositório GitHub pela estrutura completa deste ZIP.
-6. Publique na Netlify com a raiz do repositório como diretório de publicação.
-7. Teste as rotas /, /admin.html e /membros.html com contas diferentes.
+1. Faça backup do Supabase (banco + Storage) e do repositório GitHub.
+2. No Supabase atual, execute somente AYLAS-CLUB-MIGRACAO-COMPATIVEL.sql.
+3. Não execute ATUALIZACAO-SUPABASE.sql nem SUPABASE-SECURITY-HARDENING.sql: são scripts históricos.
+4. SUPABASE-SETUP.sql é apenas para um Supabase novo, não para o banco atual.
+5. Depois do SQL, publique os arquivos deste ZIP na raiz da Netlify.
 
-IMPORTANTE:
-- Não há gateway nem checkout funcional nesta entrega.
-- O registo de leads não ativa assinaturas nem desbloqueia extras.
-- Testes reais no Supabase e na Netlify dependem do acesso à conta e devem ser feitos antes de produção.
-- Consulte README.md para limitações, migração e testes.
+Preservação: esta revisão não apaga usuários, assinaturas, mídias, reels nem objetos do Storage.
+
+Pendente: seletor/tradução completa PT/EN/ES e integração do gateway ainda não foram implementados. O checkout não deve ser anunciado como funcional.

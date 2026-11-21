@@ -10,6 +10,7 @@ try{
  const valid=(subs||[]).find(x=>!x.current_period_end||new Date(x.current_period_end)>new Date());
  if(!valid){$id('app').innerHTML='<div class="card"><h2>Assinatura não ativa</h2><p class="mut">Não encontrámos uma assinatura ativa nesta conta. O acesso será atualizado quando uma confirmação legítima de pagamento for integrada.</p><a class="btn" href="index.html">Voltar ao Ayla’s Club</a></div>';return;}
  await loadRemoteState(false,true);
+ const memberLogo=document.querySelector('.top .logo');if(memberLogo)memberLogo.textContent=S.content?.logoText||S.name||"Ayla's Club";
  const plan=S.plans.find(p=>p.id===valid.plan_id);
  const [mediaUrls,reelUrls]=await Promise.all([
    Promise.all(S.media.filter(m=>m.access!=='extra').map(async m=>({...m,url:await AYLAS_DB.mediaUrl(m).catch(()=>null)}))),
@@ -21,7 +22,7 @@ try{
  $id('si').innerHTML=ic('search');
  const end=valid.current_period_end;
  $id('app').innerHTML=`
- <section class="welcome"><div><p class="mut sm">Bem-vinda à área de membros</p><h1>${esc(session.user.user_metadata?.display_name||session.user.email||'Membro')}</h1><p class="mut sm">${plan?`Plano ${esc(plan.name)} · `:''}Estado: ativa · ${end?'Válida até '+fmtDate(end):'Sem data de término registada'}</p></div><span class="pill">Assinatura ativa</span></section>
+ <section class="welcome"><div class="welcome-copy"><p class="mut sm">Bem-vinda à área de membros</p><h1>${esc(session.user.user_metadata?.display_name||'Bem-vinda!')}</h1><p class="mut sm member-email">${esc(session.user.email||'')}</p><p class="mut sm">${plan?`Plano ${esc(plan.name)} · `:''}Estado: ativa · ${end?'Válida até '+fmtDate(end):'Sem data de término registada'}</p></div><span class="pill">Assinatura ativa</span></section>
  <div class="sec"><h2>${ic('video')} Reels</h2><span class="mut sm">${reels.length} vídeos disponíveis</span></div>
  <div class="grid3" id="reelgrid">${reels.length?reels.map((r,i)=>`<div class="card"><b>${esc(r.title)}</b><video src="${esc(r.url)}" autoplay muted loop playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture oncontextmenu="return false" style="width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:16px;margin-top:10px;background:#000"></video></div>`).join(''):'<p class="empty">Ainda não existem reels disponíveis.</p>'}</div>
  <div class="sec" id="gridsec"><h2>Todas as mídias</h2><div class="chips">${[['all','Tudo'],['photo','Fotos'],['video','Vídeos']].map(x=>`<button class="chip ${x[0]==='all'?'on':''}" data-f="${x[0]}">${x[1]}</button>`).join('')}</div></div>

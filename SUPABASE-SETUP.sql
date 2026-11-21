@@ -1,3 +1,6 @@
+-- AVISO: SETUP INICIAL APENAS para projeto Supabase NOVO. NÃO EXECUTAR sobre o banco Ayla’s Club já existente.
+-- Consulte AYLAS-CLUB-MIGRACAO-COMPATIVEL.sql para a migração da versão atual.
+
 -- AYLA'S CLUB | Estrutura inicial de produção
 -- Execute uma única vez no Supabase > SQL Editor > New query.
 

@@ -6,7 +6,7 @@ const TITLES=[];
 const pat=[];
 const DUR=['0:48','0:31','0:34','0:39','0:42'];
 const CONTENT_DEFAULTS={
- onlineLabel:'online agora',onlineVisible:true,loginButton:'Entrar',subscribeButton:'Assinar',
+ logoText:"Ayla's Club",onlineLabel:'online agora',onlineVisible:true,loginButton:'Entrar',subscribeButton:'Assinar',
  heroSubscribePrefix:'Assinar a partir de',reelsTitle:'Reels',reelsFreeLabel:'prévias grátis',reelsPaidLabel:'para assinantes',
  filterAll:'Tudo',filterPhotos:'Fotos',filterVideos:'Vídeos',freePreview:'Prévia grátis',freeVideo:'Vídeo grátis',
  exclusiveLabel:'Conteúdo exclusivo',lockedSubtitle:'Assinatura necessária',lockedReel:'Só assinantes',
@@ -58,7 +58,9 @@ function closeModal(){$('.mbg')?.remove()}
 function modal(html,big){closeModal();const bg=document.createElement('div');bg.className='mbg';bg.innerHTML=`<div class="modal ${big?'big':''}" role="dialog" aria-modal="true"><button class="x" aria-label="Fechar">✕</button>${html}</div>`;document.body.append(bg);bg.addEventListener('click',e=>{if(e.target===bg||e.target.closest('.x'))closeModal()});return bg.firstElementChild}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('.mbg[data-lock]'))closeModal()});
 function applyTheme(){
- const t=S.content?.theme||{}; const root=document.documentElement;
+ const path=location.pathname.toLowerCase();
+ const scope=path.endsWith('membros.html')?'members':path.endsWith('admin.html')?'admin':'home';
+ const t={...(S.content?.theme||{}),...(S.content?.themePages?.[scope]||{})}; const root=document.documentElement;
  const vars={bg:t.bg||'#0b090d',card:t.card||'#17131b',card2:t.card2||'#211b25',tx:t.text||'#f7f2f5',mut:t.muted||'#aaa1ad',ac:t.accent||S.accent||'#ff3d62',ac2:t.button||t.accent||S.accent||'#ff3d62',line:t.border||'#302a34'};
  Object.entries(vars).forEach(([k,v])=>root.style.setProperty('--'+k,v));root.style.setProperty('--button-text',t.buttonText||'#ffffff');root.style.setProperty('--badge-bg',t.badge||t.accent||S.accent||'#ff3d62');
 }

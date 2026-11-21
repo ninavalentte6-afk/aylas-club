@@ -1,3 +1,6 @@
+-- AVISO: ARQUIVO HISTÓRICO. NÃO EXECUTAR isoladamente: foi escrito para uma versão anterior das políticas.
+-- Consulte AYLAS-CLUB-MIGRACAO-COMPATIVEL.sql para a migração da versão atual.
+
 -- AYLA'S CLUB | Endurecimento de acesso a conteúdos privados
 -- Aplicar uma vez no Supabase SQL Editor depois de confirmar as tabelas e buckets existentes.
 -- Não apaga dados, utilizadores, planos nem assinaturas.
