@@ -57,7 +57,11 @@ function toast(m){$('.toast')?.remove();const t=document.createElement('div');t.
 function closeModal(){$('.mbg')?.remove()}
 function modal(html,big){closeModal();const bg=document.createElement('div');bg.className='mbg';bg.innerHTML=`<div class="modal ${big?'big':''}" role="dialog" aria-modal="true"><button class="x" aria-label="Fechar">✕</button>${html}</div>`;document.body.append(bg);bg.addEventListener('click',e=>{if(e.target===bg||e.target.closest('.x'))closeModal()});return bg.firstElementChild}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('.mbg[data-lock]'))closeModal()});
-function applyTheme(){document.documentElement.style.setProperty('--ac',S.accent)}
+function applyTheme(){
+ const t=S.content?.theme||{}; const root=document.documentElement;
+ const vars={bg:t.bg||'#0b090d',card:t.card||'#17131b',card2:t.card2||'#211b25',tx:t.text||'#f7f2f5',mut:t.muted||'#aaa1ad',ac:t.accent||S.accent||'#ff3d62',ac2:t.button||t.accent||S.accent||'#ff3d62',line:t.border||'#302a34'};
+ Object.entries(vars).forEach(([k,v])=>root.style.setProperty('--'+k,v));root.style.setProperty('--button-text',t.buttonText||'#ffffff');root.style.setProperty('--badge-bg',t.badge||t.accent||S.accent||'#ff3d62');
+}
 function loginModal(){const m=modal(`<h2>Entrar</h2><p class="mut sm">Acesse sua conta Ayla's Club.</p>
 <form id="lf"><label class="fld">E-mail<input type="email" id="le" required placeholder="voce@email.com"></label><label class="fld">Senha<input type="password" id="lp" required minlength="6"></label>
 <div class="err"></div><button class="btn full">Entrar</button></form>
@@ -79,7 +83,7 @@ function extraModal(item){
  <form id="extraInterest"><label class="fld">Seu e-mail<input id="extraEmail" type="email" required autocomplete="email"></label><label class="chk"><input id="extraConsent" type="checkbox" required> Aceito ser contactada sobre este conteúdo e li a Política de Privacidade.</label><button class="btn full" type="submit">Tenho interesse neste conteúdo</button></form>`);
  $('#extraInterest',m).onsubmit=async e=>{e.preventDefault();const b=$('button[type=submit]',e.target);b.disabled=true;try{await AYLAS_DB.createLead({email:$('#extraEmail',m).value,source:'extra_interest',media_id:item.id});toast('Interesse registado. O conteúdo continua bloqueado até confirmação de pagamento.');closeModal();}catch(err){b.disabled=false;toast('Não foi possível registar o interesse: '+err.message);}};
 }
-function lightbox(it){const media=it.url?(it.type==='video'?`<video src="${esc(it.url)}" controls playsinline style="width:100%;max-height:70vh;border-radius:12px;background:#000"></video>`:`<img src="${esc(it.url)}" alt="${esc(it.title)}" style="width:100%;max-height:70vh;object-fit:contain;border-radius:12px">`):`<div class="lb" style="aspect-ratio:3/4;font-size:42px">${ic(it.type==='video'?'play':'image')}</div>`;modal(`<h2>${esc(it.title)}</h2><p class="mut sm">${esc(it.album||'')} ${it.dur?'· '+it.dur:''}</p>${media}`,true)}
+function lightbox(it){const media=it.url?(it.type==='video'?`<video src="${esc(it.url)}" controls playsinline controlslist="nodownload noplaybackrate" disablepictureinpicture oncontextmenu="return false" style="width:100%;max-height:70vh;border-radius:12px;background:#000"></video>`:`<img src="${esc(it.url)}" alt="${esc(it.title)}" style="width:100%;max-height:70vh;object-fit:contain;border-radius:12px">`):`<div class="lb" style="aspect-ratio:3/4;font-size:42px">${ic(it.type==='video'?'play':'image')}</div>`;modal(`<h2>${esc(it.title)}</h2><p class="mut sm">${esc(it.album||'')} ${it.dur?'· '+it.dur:''}</p>${media}`,true)}
 function share(){navigator.clipboard?.writeText(location.href).catch(()=>{});toast('Link copiado.')}
 document.addEventListener('click',e=>{if(e.target.closest('[data-login]'))loginModal();const s=e.target.closest('[data-subscribe]');if(s)subscribeModal(s.dataset.subscribe||null);const t=e.target.closest('[data-t]');if(t){e.preventDefault();modal(`<h2>${t.dataset.t}</h2><p class="mut" style="margin-top:8px">Documento em preparação. Adicione aqui os Termos e a Política de Privacidade antes da publicação.</p>`)}});
 applyTheme();

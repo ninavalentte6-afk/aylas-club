@@ -23,7 +23,7 @@ try{
  $id('app').innerHTML=`
  <section class="welcome"><div><p class="mut sm">Bem-vinda à área de membros</p><h1>${esc(session.user.user_metadata?.display_name||session.user.email||'Membro')}</h1><p class="mut sm">${plan?`Plano ${esc(plan.name)} · `:''}Estado: ativa · ${end?'Válida até '+fmtDate(end):'Sem data de término registada'}</p></div><span class="pill">Assinatura ativa</span></section>
  <div class="sec"><h2>${ic('video')} Reels</h2><span class="mut sm">${reels.length} vídeos disponíveis</span></div>
- <div class="grid3" id="reelgrid">${reels.length?reels.map((r,i)=>`<div class="card"><b>${esc(r.title)}</b><video src="${esc(r.url)}" controls playsinline preload="metadata" style="width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:12px;margin-top:10px;background:#000"></video></div>`).join(''):'<p class="empty">Ainda não existem reels disponíveis.</p>'}</div>
+ <div class="grid3" id="reelgrid">${reels.length?reels.map((r,i)=>`<div class="card"><b>${esc(r.title)}</b><video src="${esc(r.url)}" autoplay muted loop playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture oncontextmenu="return false" style="width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:16px;margin-top:10px;background:#000"></video></div>`).join(''):'<p class="empty">Ainda não existem reels disponíveis.</p>'}</div>
  <div class="sec" id="gridsec"><h2>Todas as mídias</h2><div class="chips">${[['all','Tudo'],['photo','Fotos'],['video','Vídeos']].map(x=>`<button class="chip ${x[0]==='all'?'on':''}" data-f="${x[0]}">${x[1]}</button>`).join('')}</div></div>
  <div class="chips" id="albums" style="margin-bottom:12px"></div><div class="grid4" id="grid" style="padding-bottom:50px"></div>`;
  const albums=[...new Set(media.map(m=>m.album).filter(Boolean))];
@@ -32,7 +32,7 @@ try{
    const rows=media.filter(m=>(filter==='all'||m.type===filter)&&(!album||m.album===album)&&(`${m.title} ${m.album}`.toLowerCase().includes(query)));
    $$('[data-f]').forEach(b=>b.classList.toggle('on',b.dataset.f===filter));
    $$('[data-al]').forEach(b=>b.classList.toggle('on',b.dataset.al===album));
-   $id('grid').innerHTML=rows.length?rows.map((m,i)=>`<button class="tile" data-id="${esc(m.id)}" style="background-image:url('${esc(m.url)}');background-size:cover;background-position:center" aria-label="${esc(m.title)}"><span class="ft">${ic(m.type==='video'?'play':'image')}${esc(m.title)}</span></button>`).join(''):'<p class="empty">Nenhuma mídia encontrada.</p>';
+   $id('grid').innerHTML=rows.length?rows.map((m,i)=>`<button class="tile member-tile" data-id="${esc(m.id)}" aria-label="${esc(m.title)}">${m.type==='video'?`<video src="${esc(m.url)}" autoplay muted loop playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture oncontextmenu="return false"></video>`:`<img src="${esc(m.url)}" loading="lazy" alt="${esc(m.title)}">`}<span class="ft">${ic(m.type==='video'?'play':'image')}${esc(m.title)}</span></button>`).join(''):'<p class="empty">Nenhuma mídia encontrada.</p>';
  }
  document.addEventListener('click',e=>{
    const f=e.target.closest('[data-f]');if(f){filter=f.dataset.f;draw();return;}

@@ -9,6 +9,17 @@ alter table public.site_settings
   add column if not exists metrics jsonb not null default '[]'::jsonb,
   add column if not exists content jsonb not null default '{}'::jsonb;
 
+-- Corrige leitura pública do conteúdo institucional e dos planos ativos.
+-- GRANT é apenas o privilégio SQL; RLS continua limitando quais linhas podem ser lidas.
+grant usage on schema public to anon, authenticated;
+grant select on public.site_settings, public.plans to anon, authenticated;
+drop policy if exists "public read settings" on public.site_settings;
+create policy "public read settings" on public.site_settings
+  for select to anon, authenticated using (true);
+drop policy if exists "public read active plans" on public.plans;
+create policy "public read active plans" on public.plans
+  for select to anon, authenticated using (active = true or public.aylas_is_admin());
+
 alter table public.media
   add column if not exists sort_order integer not null default 0,
   add column if not exists preview_bucket text,

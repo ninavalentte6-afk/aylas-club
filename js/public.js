@@ -1,8 +1,8 @@
 let filter='all';
-const metricCount=m=>String(Number(m.value)||0);
+const metricCount=m=>`${m.prefix||''}${String(m.value??0)}${m.suffix||''}`;
 const tile=m=>{
  const locked=m.access!=='free',bg=locked?(m.preview_url?`background-image:url('${esc(m.preview_url)}')`:''):m.url?`background-image:url('${esc(m.url)}')`:'';
- return `<div class="tile ${locked?'locked-preview':''}" data-id="${esc(m.id)}" role="button" tabindex="0" aria-label="${esc(m.title)}" style="${locked&&m.preview_url?`--preview-image:url('${esc(m.preview_url)}')`:''};${bg};background-size:cover;background-position:center">${locked?`<span class="lock">${ic('lock')}${m.access==='extra'?'Extra pago':c('exclusiveLabel')}</span><span class="locked-copy">${m.access==='extra'?brl(m.price)+' · Ver detalhes':c('lockedSubtitle')}</span>`:`<span class="tag pre">${m.type==='video'?ic('play')+c('freeVideo'):ic('image')+c('freePreview')}</span>`}</div>`;
+ return `<div class="tile ${locked?'locked-preview':''}" data-id="${esc(m.id)}" role="button" tabindex="0" aria-label="${esc(m.title)}" style="${locked&&m.preview_url?`--preview-image:url('${esc(m.preview_url)}')`:''};${bg};background-size:cover;background-position:center">${!locked&&m.type==='video'&&m.url?`<video class="tile-video" src="${esc(m.url)}" autoplay muted loop playsinline preload="metadata" controlslist="nodownload" disablepictureinpicture oncontextmenu="return false"></video>`:''}${locked?`<span class="lock">${ic('lock')}${m.access==='extra'?'EXTRA EXCLUSIVO':c('exclusiveLabel')}</span><span class="locked-copy">${m.access==='extra'?`<b>${brl(m.price)}</b><small>Desbloquear conteúdo</small>`:c('lockedSubtitle')}</span>`:`<span class="tag pre">${m.type==='video'?ic('play')+c('freeVideo'):ic('image')+c('freePreview')}</span>`}</div>`;
 };
 function render(){
  const pl=activePlans(),sel=pl.find(p=>p.id===S.selected)||pl[0];
@@ -19,7 +19,7 @@ function render(){
   <div class="card"><p>${esc(S.bio)}</p></div>
   ${metrics.length?`<div class="stats metric-stats">${metrics.map(m=>`<div><b>${esc(metricCount(m))}</b><span>${esc(m.label)}</span></div>`).join('')}</div>`:''}
   <div class="sec"><h2>${ic('video')} ${c('reelsTitle')}</h2><span class="mut sm">${free} ${c('reelsFreeLabel')} · ${S.reels.filter(r=>r.published&&!r.free).length} ${c('reelsPaidLabel')}</span></div>
-  <div class="rail" id="rail">${S.reels.filter(r=>r.published).map((r,i)=>r.free&&r.url?`<div class="rcard reel-video-card"><b class="meta">${esc(r.title)}</b><video src="${esc(r.url)}" controls playsinline preload="metadata" style="width:100%;height:100%;max-height:340px;object-fit:cover;border-radius:14px;background:#000"></video></div>`:`<div class="rcard dim locked-preview" data-r="${i}" role="button" tabindex="0"><span class="lock">${ic('lock')}${c('lockedReel')}</span><div class="locked-copy">${c('lockedReelCta')}</div><div class="meta">${esc(r.title)}</div></div>`).join('')}</div>
+  <div class="rail" id="rail">${S.reels.filter(r=>r.published).map((r,i)=>r.free&&r.url?`<div class="rcard reel-video-card"><b class="meta">${esc(r.title)}</b><video src="${esc(r.url)}" autoplay muted loop playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture oncontextmenu="return false" aria-label="${esc(r.title)}" style="width:100%;height:100%;max-height:340px;aspect-ratio:9/16;object-fit:cover;border-radius:16px;background:#000"></video></div>`:`<div class="rcard dim locked-preview" data-r="${i}" role="button" tabindex="0"><span class="lock">${ic('lock')}${c('lockedReel')}</span><div class="locked-copy">${c('lockedReelCta')}</div><div class="meta">${esc(r.title)}</div></div>`).join('')}</div>
   <div class="sec"><div class="chips" role="tablist">${[['all',c('filterAll')],['photo',c('filterPhotos')],['video',c('filterVideos')]].map(([v,label])=>`<button class="chip ${filter===v?'on':''}" data-f="${v}">${label}</button>`).join('')}</div></div>
   <div class="grid3">${items.length?items.map(tile).join(''):`<p class="empty">${c('emptyMedia')}</p>`}</div>
   ${sel?`<button class="cta" data-subscribe="${sel.id}">${ic('lock')} ${c('subscribeCta')}</button>`:''}
@@ -37,4 +37,4 @@ $('#app').addEventListener('click',e=>{const t=e.target;let el;
  else if(t.closest('#share'))share();
 });
 const sel=()=>S.selected;
-loadRemoteState().then(render).catch(err=>{console.error(err);$('#app').innerHTML=`<div class="card"><h2>Estamos preparando o Ayla's Club</h2><p class="mut">Não foi possível carregar os dados. Confira a configuração do Supabase e tente novamente.</p></div>`;});
+loadRemoteState().then(render).catch(err=>{console.error('Falha ao carregar dados remotos:',err);render();const n=document.createElement('p');n.className='mut sm backend-notice';n.textContent='Algumas informações podem estar temporariamente indisponíveis. Tente atualizar a página.';$('#app').prepend(n);});

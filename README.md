@@ -4,6 +4,13 @@ Este pacote mantém a arquitetura estática existente (HTML, CSS e JavaScript), 
 
 ## O que esta revisão altera
 
+- A página inicial (`/`) é pública: não exige login para visitantes. Falhas temporárias de leitura do Supabase não substituem mais a página por uma tela inteira de manutenção; o site mantém o conteúdo-base e apresenta aviso discreto. Para mostrar conteúdo, planos e mídias reais, as permissões e a configuração Supabase ainda precisam estar corretas.
+- As métricas públicas são manuais e aceitam prefixo e sufixo, permitindo formatos como `+400` sem expor a contagem exata do banco.
+- O editor de Aparência agora oferece cores independentes para fundo, cartões, cartões secundários, textos, destaque, botões, texto dos botões, etiquetas e bordas. As cores ficam em `site_settings.content.theme`.
+- Reels e vídeos de galeria usam reprodução automática silenciosa em loop quando o navegador permite, com apresentação vertical adaptada ao celular. Os controles de download e picture-in-picture são ocultados quando suportados pelo navegador.
+- A galeria da área de membros usa miniaturas de vídeo em movimento e imagens com carregamento lazy, com cards mais consistentes em telas pequenas.
+- Etiquetas de conteúdo exclusivo e extras pagos ganharam hierarquia visual, preço destacado e chamada de desbloqueio.
+
 - A página pública passa a consumir vistas de catálogo com campos limitados, em vez de ler diretamente todos os campos das tabelas de mídia.
 - O caminho do ficheiro original só é disponibilizado no catálogo público quando o conteúdo é gratuito e está no bucket `aylas-public`.
 - A área de membros carrega os registos diretamente das tabelas, sob RLS, para obter URLs assinadas dos conteúdos a que a conta tem direito.
@@ -22,7 +29,7 @@ Esta entrega não equivale à implementação integral de todos os requisitos do
 
 1. Integração de gateway (Stripe, Mercado Pago ou outro), checkout de assinatura e checkout individual, webhooks assinados, idempotência, reembolsos, renovações e ativação automática. Não há cobrança funcional nesta versão.
 2. Dashboard com KPIs reais, receita, funil, gráficos por período, analytics de visualizações e desempenho dos planos.
-3. Editor visual completo com todas as cores, tipografia, estilos de botões, bordas e pré-visualização de publicação.
+3. Editor de tipografia, arredondamento, estilos avançados e pré-visualização de publicação ainda não foi concluído; o editor atual cobre as principais cores da interface.
 4. Editor completo de textos para todos os rótulos, mensagens e termos. O editor atual cobre apenas os campos definidos em `CONTENT_FIELDS`.
 5. Edição/substituição de ficheiros de mídia existentes por uma interface dedicada. O painel existente permite editar metadados, publicar, ordenar, excluir e enviar novos ficheiros.
 6. Reels com miniaturas personalizadas, descrição e gestão completa de substituição.
@@ -73,11 +80,11 @@ A migração pressupõe que a função `public.aylas_is_admin()` e as tabelas or
 - O registo de lead não representa uma compra nem ativa uma assinatura.
 - Conteúdos `extra` continuam bloqueados até existir checkout e confirmação de pagamento confiável no servidor.
 - Conteúdos de assinantes exigem assinatura `active` e `current_period_end` nulo ou futuro.
-- Não conceda `service_role` ao browser, nem crie políticas `USING (true)` para operações administrativas.
+- Não conceda `service_role` ao browser, nem crie políticas `USING (true)` para operações administrativas. A política pública `SELECT` de `site_settings` permite leitura das configurações de apresentação; não armazene segredos nessa tabela. A política pública de `plans` só permite planos ativos.
 
 ## Testes executados nesta revisão
 
-- Verificação de sintaxe dos seis ficheiros JavaScript com `node --check`.
+- Verificação de sintaxe dos ficheiros JavaScript com `node --check`.
 - Inspeção da estrutura do ZIP e dos caminhos locais referenciados nos HTML.
 - Revisão estática do fluxo de autorização, catálogo público, leads e Storage.
 - Revisão estática da migração SQL e das políticas RLS propostas.
