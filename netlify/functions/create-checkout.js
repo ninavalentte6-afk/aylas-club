@@ -63,8 +63,7 @@ exports.handler = async event => {
       'metadata[order_id]': metadata.order_id,
       'metadata[user_id]': metadata.user_id,
       'metadata[kind]': metadata.kind,
-      'line_items[0][quantity]': '1',
-      'payment_method_types[0]': mode === 'subscription' ? 'card' : paymentMethod === 'pix' ? 'pix' : 'card'
+      'line_items[0][quantity]': '1'
     };
     if (user.email) params.customer_email = user.email;
     if (mode === 'payment' && paymentMethod === 'pix') params.expires_at = String(Math.floor(Date.now() / 1000) + 30 * 60);
