@@ -25,16 +25,31 @@ async function markCheckoutPaid(session) {
   }
   if (session.payment_status !== 'paid') return;
   await setOrder(md.order_id, { status: 'paid', paid_at: new Date().toISOString(), provider_ref: session.id });
-  // O plano vitalício é uma compra única, mas libera acesso permanente pela tabela subscriptions.
-  if (md.kind === 'subscription' && md.plan_id && md.user_id && session.payment_intent) {
-    const pi = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent.id;
-    const existing = await sbGet('subscriptions', { provider: 'eq.stripe', provider_ref: `eq.${pi}` }, 'id', { limit: '1' });
-    const row = {
-      user_id: md.user_id, plan_id: md.plan_id, status: 'active', current_period_end: null,
-      source: 'stripe', provider: 'stripe', provider_ref: pi, cancel_at_period_end: false
-    };
-    if (existing[0]) await sbPatch('subscriptions', { id: `eq.${existing[0].id}` }, row);
-    else await sbInsert('subscriptions', row);
+  // Compra única: vitalício ou período fixo (Pix), sem renovação.
+  if (md.kind === 'subscription' && md.plan_id && md.user_id) {
+    const pi = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
+    // Usa a sessão como referência se a Stripe não retornar payment_intent no evento.
+    const ref = pi || session.id;
+    const existing = await sbGet('subscriptions', { provider: 'eq.stripe', provider_ref: `eq.${ref}` }, 'id', { limit: '1' });
+    if (existing[0]) return; // Idempotência: não estende o prazo em reenvios do webhook.
+    const planRows = await sbGet('plans', { id: `eq.${md.plan_id}` }, 'id,months', { limit: '1' });
+    if (!planRows[0]) throw new Error('Plano pago não encontrado para ativação.');
+    const months = Number(planRows[0].months);
+    if (!Number.isInteger(months) || months < 1) throw new Error('Duração do plano inválida.');
+    let end = null;
+    if (months < 9999) {
+      // Meses de calendário, preservando o último dia em meses mais curtos.
+      const paidAt = new Date();
+      const day = paidAt.getUTCDate();
+      const target = new Date(Date.UTC(paidAt.getUTCFullYear(), paidAt.getUTCMonth() + months, 1, paidAt.getUTCHours(), paidAt.getUTCMinutes(), paidAt.getUTCSeconds()));
+      const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+      target.setUTCDate(Math.min(day, lastDay));
+      end = target.toISOString();
+    }
+    await sbInsert('subscriptions', {
+      user_id: md.user_id, plan_id: md.plan_id, status: 'active', current_period_end: end,
+      source: 'stripe', provider: 'stripe', provider_ref: ref, cancel_at_period_end: false
+    });
   }
 }
 async function handleInvoicePaid(invoice) {
@@ -99,8 +114,11 @@ async function processEvent(event) {
     case 'checkout.session.completed':
     case 'checkout.session.async_payment_succeeded':
       await markCheckoutPaid(obj); break;
-    case 'checkout.session.expired':
-      await setOrder(obj.metadata?.order_id, { status: 'canceled' }); break;
+    case 'checkout.session.expired': {
+      const rows = await sbGet('orders', { id: `eq.${obj.metadata?.order_id || ''}` }, 'status', { limit: '1' });
+      if (rows[0] && rows[0].status !== 'paid') await setOrder(obj.metadata?.order_id, { status: 'canceled' });
+      break;
+    }
     case 'customer.subscription.created':
     case 'customer.subscription.updated':
     case 'customer.subscription.deleted':
