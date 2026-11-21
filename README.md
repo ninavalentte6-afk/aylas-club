@@ -1,58 +1,22 @@
-# Ayla's Club — revisão compatível com o Supabase atual
+# Ayla's Club 2.0
 
-Este pacote é uma revisão incremental do projeto HTML/CSS/JavaScript já existente. Mantém a arquitetura atual: Supabase Auth, Database e Storage, com publicação estática na Netlify.
+Site estático (HTML/CSS/JS) + Supabase (Auth, Postgres, Storage) + Netlify. Sem build.
 
-## O que foi ajustado nesta revisão
+## Instalar
+1. **Backup** do Supabase (banco e Storage) e do repositório GitHub.
+2. Supabase › SQL Editor: execute **`AYLAS-CLUB-2.0-MIGRACAO.sql`** (único SQL necessário; idempotente). Não apaga dados, a conta admin, planos, mídias, reels, assinaturas nem buckets. Atenção: **recria todas as políticas RLS** das tabelas do projeto e as de `storage.objects` que mencionam buckets `aylas-*`.
+3. Veja o resultado dos 2 SELECTs finais: (a) deve vir vazio — senão há originais pagos no bucket público (mude o acesso no painel para os mover); (b) deve listar a sua conta admin.
+4. Substitua os ficheiros do repositório por este ZIP (raiz: `index.html`, `membros.html`, `admin.html`, `css/`, `js/`, `netlify/`, `netlify.toml`, `manifest.webmanifest`). A Netlify publica a raiz, sem build command. `js/config.js` mantém a URL e a chave pública atuais.
+5. Supabase › Authentication › URL Configuration: defina *Site URL* e *Redirect URLs* para o domínio da Netlify (necessário para registo e recuperação de senha). Decida se exige confirmação de e-mail.
 
-- A página inicial continua pública; o visitante não precisa entrar para visualizar o perfil e o catálogo público.
-- A área de membros não usa mais o e-mail como título principal. Mostra o nome de exibição e deixa o e-mail em tamanho discreto.
-- As etiquetas de conteúdo exclusivo ficam ancoradas no topo do cartão, sem a transformação que as deslocava para fora.
-- Os botões de bloqueio/desbloqueio foram limitados ao cartão e ajustados para telas pequenas.
-- O painel agora permite guardar temas separados para página inicial, área de membros e painel administrativo, em `site_settings.content.themePages`.
-- O nome do logotipo pode ser editado separadamente em Textos e conteúdo (`logoText`), sem alterar o nome principal do perfil.
-- A migração SQL desta entrega é compatível com o bloco informado como já executado e não remove nem recria políticas RLS.
+## Como funciona
+- **Visitante** (`index.html`): vê só as *views* públicas; fotos gratuitas nítidas; exclusivos e extras com miniatura desfocada irrecuperável (gerada a ~28 px e ampliada) + preço individual nos extras.
+- **Membro** (`membros.html`): qualquer conta autenticada entra; o acesso aos originais é decidido pelo Supabase (assinatura válida → “exclusivos”; compra paga → o extra). Links assinados de 1 h.
+- **Admin** (`admin.html`): exige `profiles.is_admin = true` (a sua conta existente é preservada). O admin também pré-visualiza a área de membros (como admin / assinante / visitante). Entrar já **não** redireciona todos para o painel.
+- **Personalizar meu site**: cores, fontes, tamanhos, arredondamentos, colunas, perfil, capa, ONLINE AGORA, métricas e todos os textos, com pré-visualização desktop/mobile em tempo real. Guardar/Cancelar/Restaurar. Tudo persiste em `site_settings.content`.
 
-## SQL correto para a base atual
+## Variáveis de ambiente (Netlify) — só quando ativar pagamentos
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (**nunca** no frontend), `PAYMENT_PROVIDER`, e as credenciais do gateway (ex.: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` ou `MP_ACCESS_TOKEN`). Sem elas o checkout responde “não configurado”.
 
-Use **somente** `AYLAS-CLUB-MIGRACAO-COMPATIVEL.sql` no Supabase SQL Editor.
-
-Características:
-- `ADD COLUMN IF NOT EXISTS` para colunas já criadas ou ausentes;
-- atualiza os privilégios SQL necessários;
-- cria/substitui os catálogos públicos com os mesmos campos usados pelo frontend;
-- não executa `DROP POLICY`;
-- não executa `CREATE POLICY`;
-- não apaga registros, usuários, assinaturas ou objetos do Storage.
-
-O SQL que você informou já ter executado criou as colunas e as duas views. Portanto, a migração compatível será em grande parte idempotente, reforçando grants e garantindo que as views estejam no formato esperado.
-
-**Não execute** `ATUALIZACAO-SUPABASE.sql` nem `SUPABASE-SECURITY-HARDENING.sql`: são scripts históricos de versões anteriores e podem alterar políticas. `SUPABASE-SETUP.sql` é apenas para criar um projeto novo, nunca para rodar no projeto atual.
-
-## O que permanece pendente — não declarar como concluído
-
-1. Seletor de idioma na primeira visita e traduções completas em português, inglês e espanhol. A decisão de UX está definida, mas a tradução de todas as páginas, modais, mensagens e textos dinâmicos ainda precisa ser implementada e testada.
-2. Gateway. Stripe e Mercado Pago ainda precisam ser comparados e aprovados para o tipo exato de conteúdo e país de operação. Não há checkout, webhook, cobrança, renovação nem ativação automática nesta entrega.
-3. Editor visual de fontes, tamanhos, espaçamentos e pré-visualização completa.
-4. Testes reais no Supabase remoto, em contas anônima/membro/admin e em aparelhos físicos.
-5. Processamento de miniaturas privadas no servidor. As prévias atuais são geradas no navegador e não impedem captura de tela.
-
-## Segurança e preservação de dados
-
-- Não foi adicionada chave `service_role` ao frontend.
-- Os arquivos originais de conteúdo pago devem permanecer no bucket privado `aylas-private`.
-- As prévias públicas devem conter somente versões derivadas/desfocadas, nunca o original pago.
-- A área de membros continua consultando as tabelas base sob RLS; a página pública usa `public_media_catalog` e `public_reels_catalog`.
-- Não há integração de pagamento nesta entrega. Não marque leads como compras nem ative assinaturas manualmente por retorno de navegador.
-
-## Publicação
-
-1. Faça backup do repositório GitHub e do Supabase (banco e Storage).
-2. Execute `AYLAS-CLUB-MIGRACAO-COMPATIVEL.sql` no projeto Supabase atual.
-3. Confirme que a execução terminou sem erro.
-4. Substitua os arquivos do site pela estrutura deste ZIP, mantendo `index.html`, `admin.html`, `membros.html`, `css/` e `js/` na raiz.
-5. Confirme que a Netlify publica a raiz do repositório, sem build command.
-6. Teste `/`, `/admin.html` e `/membros.html` antes de divulgar.
-
-## Configuração
-
-A URL e a chave pública do Supabase estão em `js/config.js`. A chave publishable/anon pode estar no frontend; nunca coloque `service_role` nesse arquivo.
+## Pendente / não incluído (ver RELATORIO-DE-TESTES.md)
+Checkout e webhook reais (funções em `netlify/functions` são esqueletos que devolvem 501), ícones/PWA completo (manifesto sem ícones), traduções PT/EN/ES, pipeline de miniaturas no servidor, testes reais no seu Supabase.

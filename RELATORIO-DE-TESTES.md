@@ -1,29 +1,25 @@
-# Relatório de validação — Ayla's Club
+# Relatório — Ayla's Club 2.0
 
-## Verificações realizadas nesta entrega
-- ZIP original recebido e extraído para inspeção.
-- Estrutura do projeto preservada: HTML, CSS, JavaScript e scripts SQL.
-- `node --check` executado nos seis arquivos JavaScript: todos passaram após as alterações.
-- Conferência estática das chamadas ao catálogo público e das colunas de mídia/prévia.
-- Migração compatível revisada: não contém comandos operacionais `DROP POLICY` ou `CREATE POLICY`; não altera políticas RLS.
-- Arquivo ZIP reaberto e teste de integridade executado após a geração.
+## Implementado (ficheiros reais do projeto reescritos)
+- `css/style.css` novo design system (variáveis editáveis, mobile-first, navegação inferior na área de membros e no admin).
+- `js/db.js`, `js/core.js` (substitui `main.js`), `js/public.js`, `js/members.js`, `js/admin.js`; HTML das 3 páginas.
+- Site público: capa, perfil, ONLINE AGORA, bio, métricas manuais, reels, galeria com filtros (Tudo/Grátis/Exclusivos/Extras), planos com destaque e benefícios, visualizador com anterior/seguinte/zoom/swipe.
+- Área de membros: início personalizado, galeria com busca, reels, extras (adquiridos/disponíveis), favoritos persistentes, conta (perfil, avatar, assinatura, histórico de compras, sair), pré-visualização admin.
+- Admin: dashboard com dados reais e filtros de período, personalizar site, mídias (editar, substituir ficheiro mantendo dados, filtros, ordem, publicar, excluir), extras, reels, planos (benefícios, destaque, ordem, exclusão com aviso), membros (concessão/cancelamento manual), leads (estado, notas, CSV), configurações.
+- Auth: registo, login, recuperação de senha; sem redirecionamento forçado ao painel.
+- SQL: `AYLAS-CLUB-2.0-MIGRACAO.sql` (compras `orders`, RLS, Storage, views públicas).
 
-## Alterações de interface incluídas
-- Área de membros: e-mail deixa de ser o título principal; passa a aparecer em texto secundário.
-- Etiquetas e botões de conteúdo bloqueado: posicionamento e limites ajustados para cartões e telas móveis.
-- Personalização de tema: cores separadas por página (`home`, `members`, `admin`), persistidas em `site_settings.content.themePages`.
-- Nome do logotipo: campo separado (`logoText`) no editor de textos, sem alterar o nome principal do perfil.
+## Testado (executado)
+- `node --check` em todos os JS: OK.
+- Matriz de regras de desfoque (13 verificações em Node): gratuito nítido; exclusivo/extra desfocados para visitante; assinante vê exclusivo; extra só para comprador; modos do admin; preço individual no extra; tile bloqueado não expõe URL original. **Todas passaram.**
 
-## Não testado / ainda pendente
-- Não houve conexão com o Supabase remoto nem execução da migração no banco real.
-- Não houve teste E2E com sessão anônima, assinante e administradora.
-- Não houve teste real em aparelho físico ou no domínio Netlify.
-- Seletor de idioma inicial e traduções completas PT/EN/ES ainda não estão implementados.
-- Gateway, checkout, webhooks, reembolsos e ativação automática de assinatura ainda não estão implementados. A comparação de Stripe e Mercado Pago permanece necessária antes de escolher.
-- A geração de prévias de imagem continua no navegador; não é um pipeline seguro de processamento no servidor.
+## NÃO testado (limitações reais)
+- Nada foi executado contra o seu Supabase (sem rede neste ambiente): o SQL não foi corrido num Postgres; login/registo, uploads, URLs assinadas e RLS **precisam ser testados por si** com contas visitante/membro/admin.
+- Sem testes em navegador/aparelho real (layout mobile, Safari, visualizador, pré-visualização em iframe). Sem verificação de scroll horizontal.
+- Edição simultânea de textos longos e a migração de temas antigos (`themePages`) foram só revistas no código.
+- Pagamentos: não implementados (esqueletos 501). Extras não podem ser desbloqueados até existir webhook real.
+- Sem PWA completo (falta service worker e ícones), sem traduções, sem “Reordenar” por arrastar (usa setas), sem editor de textos adicionar/ocultar itens livres além dos campos listados.
+- Miniaturas desfocadas são geradas no navegador do admin; não impedem captura de ecrã de quem já tem acesso.
 
-## Segurança operacional
-- Fazer backup do banco e do Storage antes da migração.
-- Executar apenas `AYLAS-CLUB-MIGRACAO-COMPATIVEL.sql`.
-- Não executar os scripts históricos de atualização/endurecimento listados no README.
-- Nunca colocar `service_role` no frontend.
+## Pendências externas
+Gateway (escolha, aprovação do tipo de conteúdo, credenciais, webhook), URLs do Supabase Auth, domínio, ícones PWA.

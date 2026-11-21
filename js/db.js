@@ -1,205 +1,98 @@
+/* Camada de dados — Supabase. Só usa a chave pública; a segurança real está nas políticas RLS (SQL 2.0). */
 (function(){
-  if (!window.supabase || !window.AYLAS_SUPABASE_URL || !window.AYLAS_SUPABASE_KEY) {
-    window.AYLAS_DB_ERROR = 'Biblioteca ou credenciais do Supabase não carregadas.'; return;
-  }
-  const client = window.supabase.createClient(window.AYLAS_SUPABASE_URL, window.AYLAS_SUPABASE_KEY);
-  window.AYLAS_DB = {
-    client,
-    async session(){ const {data,error}=await client.auth.getSession(); if(error) throw error; return data.session; },
-    async isAdmin(){
-      const session=await this.session(); if(!session) return false;
-      const {data,error}=await client.from('profiles').select('is_admin').eq('id',session.user.id).single();
-      if(error) throw error; return !!data?.is_admin;
-    },
-    async load(){
-      const [settings,plans,media,reels]=await Promise.all([
-        client.from('site_settings').select('*').eq('id',1).maybeSingle(),
-        client.from('plans').select('*').order('sort_order'),
-        client.from('public_media_catalog').select('*').eq('published',true).order('sort_order',{ascending:true}).order('created_at',{ascending:false}),
-        client.from('public_reels_catalog').select('*').eq('published',true).order('sort_order',{ascending:true}).order('created_at',{ascending:false})
-      ]);
-      for(const r of [settings,plans,media,reels]) if(r.error) throw r.error;
-      return {settings:settings.data,plans:plans.data||[],media:media.data||[],reels:reels.data||[]};
-    },
-    async loadMember(){
-      const [settings,plans,media,reels]=await Promise.all([
-        client.from('site_settings').select('*').eq('id',1).maybeSingle(),
-        client.from('plans').select('*').order('sort_order'),
-        client.from('media').select('*').eq('published',true).order('sort_order',{ascending:true}).order('created_at',{ascending:false}),
-        client.from('reels').select('*').eq('published',true).order('sort_order',{ascending:true}).order('created_at',{ascending:false})
-      ]);
-      for(const r of [settings,plans,media,reels]) if(r.error) throw r.error;
-      return {settings:settings.data,plans:plans.data||[],media:media.data||[],reels:reels.data||[]};
-    },
-    async createLead(payload){
-      const {error}=await client.from('leads').insert({
-        email:String(payload.email||'').trim().toLowerCase(),
-        source:payload.source||'subscription_interest',
-        plan_id:payload.plan_id||null,
-        media_id:payload.media_id||null,
-        consent_at:new Date().toISOString(),
-        status:'new'
-      });
-      if(error) throw error;
-      return true;
-    },
-    async listLeads(){
-      const {data,error}=await client.from('leads').select('id,email,source,plan_id,media_id,status,notes,created_at').order('created_at',{ascending:false});
-      if(error) throw error; return data||[];
-    },
-    async updateLead(id,patch){
-      const allowed={status:patch.status,notes:patch.notes};
-      const {error}=await client.from('leads').update(allowed).eq('id',id);
-      if(error) throw error;
-    },
-    async deleteLead(id){
-      const {error}=await client.from('leads').delete().eq('id',id);
-      if(error) throw error;
-    },
-    async loadAdmin(){
-      const [settings,plans,media,reels]=await Promise.all([
-        client.from('site_settings').select('*').eq('id',1).maybeSingle(),
-        client.from('plans').select('*').order('sort_order'),
-        client.from('media').select('*').order('sort_order',{ascending:true}).order('created_at',{ascending:false}),
-        client.from('reels').select('*').order('sort_order',{ascending:true}).order('created_at',{ascending:false})
-      ]);
-      for(const r of [settings,plans,media,reels]) if(r.error) throw r.error;
-      return {settings:settings.data,plans:plans.data||[],media:media.data||[],reels:reels.data||[]};
-    },
-    async subscriptions(){
-      const {data,error}=await client.from('subscriptions').select('id,user_id,plan_id,status,current_period_end,created_at').order('created_at',{ascending:false});
-      if(error) throw error;
-      const rows=data||[], userIds=[...new Set(rows.map(x=>x.user_id))], planIds=[...new Set(rows.map(x=>x.plan_id).filter(Boolean))];
-      const [profiles,plans]=await Promise.all([
-        userIds.length?client.from('profiles').select('id,display_name').in('id',userIds):Promise.resolve({data:[],error:null}),
-        planIds.length?client.from('plans').select('id,name').in('id',planIds):Promise.resolve({data:[],error:null})
-      ]);
-      if(profiles.error) throw profiles.error; if(plans.error) throw plans.error;
-      const pm=new Map((profiles.data||[]).map(x=>[x.id,x.display_name||'Utilizador']));
-      const pl=new Map((plans.data||[]).map(x=>[x.id,x.name]));
-      return rows.map(x=>({...x,effective_status:x.status==='active'&&x.current_period_end&&new Date(x.current_period_end)<=new Date()?'expired':x.status,member_name:pm.get(x.user_id)||x.user_id,plan_name:pl.get(x.plan_id)||'Plano removido'}));
-    },
-    async saveSettings(s){const r=await client.from('site_settings').upsert({id:1,name:s.name,handle:s.handle,bio:s.bio,accent:s.accent,banner:s.banner,profile_image_url:s.profile_image_url||null,cover_image_url:s.cover_image_url||null,metrics:Array.isArray(s.metrics)?s.metrics:[],content:s.content&&typeof s.content==='object'?s.content:{},updated_at:new Date().toISOString()});if(r.error)throw r.error;},
-    async savePlans(plans){
-      const {data:old,error}=await client.from('plans').select('id'); if(error) throw error;
-      const ids=plans.filter(p=>p.id && /^[0-9a-f-]{36}$/i.test(p.id)).map(p=>p.id);
-      // Não apagar planos antigos: podem estar ligados a assinaturas históricas.
-      for(let i=0;i<plans.length;i++){const p=plans[i],row={name:p.name,description:p.desc||'',price:Number(p.price)||0,months:Number(p.months)||1,active:!!p.active,sort_order:i};
-        row.id=(p.id&&/^[0-9a-f-]{36}$/i.test(p.id))?p.id:crypto.randomUUID(); const r=await client.from('plans').upsert(row).select().single(); if(r.error)throw r.error; p.id=r.data.id;
-      }
-    },
-    async saveMediaRows(rows){
-      for(const m of rows){
-        if(!m.id || !/^[0-9a-f-]{36}$/i.test(m.id)) continue;
-        const oldBucket=m.storage_bucket,oldPath=m.storage_path;
-        const wanted=m.access==='free'?'aylas-public':'aylas-private';
-        let nextBucket=oldBucket,nextPath=oldPath;
-        if(oldBucket!==wanted){
-          const dl=await client.storage.from(oldBucket).download(oldPath);if(dl.error)throw dl.error;
-          nextBucket=wanted;
-          nextPath=`${oldPath.replace(/^.*\//,'')}-${Date.now()}-${crypto.randomUUID().slice(0,8)}`;
-          const up=await client.storage.from(nextBucket).upload(nextPath,dl.data,{upsert:false});if(up.error)throw up.error;
-        }
-        const r=await client.from('media').update({
-          title:m.title,type:m.type,album:m.album,access:m.access,price:Number(m.price)||0,
-          is_new:!!m.isNew,storage_bucket:nextBucket,storage_path:nextPath,
-          preview_bucket:m.preview_bucket||null,preview_path:m.preview_path||null,
-          published:m.published!==false,sort_order:Number(m.sort_order)||0
-        }).eq('id',m.id);
-        if(r.error){
-          if(nextBucket!==oldBucket) await client.storage.from(nextBucket).remove([nextPath]);
-          throw r.error;
-        }
-        m.storage_bucket=nextBucket;m.storage_path=nextPath;
-        if(nextBucket!==oldBucket){
-          const rm=await client.storage.from(oldBucket).remove([oldPath]);
-          if(rm.error) console.warn('O ficheiro antigo ficou por limpar:',rm.error);
-        }
-      }
-    },
-    async saveReelRows(rows){
-      for(const r0 of rows){
-        if(!r0.id || !/^[0-9a-f-]{36}$/i.test(r0.id)) continue;
-        const oldBucket=r0.storage_bucket,oldPath=r0.storage_path;
-        const wanted=r0.free?'aylas-public':'aylas-private';
-        let nextBucket=oldBucket,nextPath=oldPath;
-        if(oldBucket!==wanted){
-          const dl=await client.storage.from(oldBucket).download(oldPath);if(dl.error)throw dl.error;
-          nextBucket=wanted;
-          nextPath=`${oldPath.replace(/^.*\//,'')}-${Date.now()}-${crypto.randomUUID().slice(0,8)}`;
-          const up=await client.storage.from(nextBucket).upload(nextPath,dl.data,{upsert:false});if(up.error)throw up.error;
-        }
-        const r=await client.from('reels').update({
-          title:r0.title,is_free:!!r0.free,storage_bucket:nextBucket,storage_path:nextPath,
-          published:r0.published!==false,sort_order:Number(r0.sort_order)||0
-        }).eq('id',r0.id);
-        if(r.error){
-          if(nextBucket!==oldBucket) await client.storage.from(nextBucket).remove([nextPath]);
-          throw r.error;
-        }
-        r0.storage_bucket=nextBucket;r0.storage_path=nextPath;
-        if(nextBucket!==oldBucket){
-          const rm=await client.storage.from(oldBucket).remove([oldPath]);
-          if(rm.error) console.warn('O ficheiro antigo ficou por limpar:',rm.error);
-        }
-      }
-    },
-    async makeBlurPreview(file){
-      if(!file.type.startsWith('image/')) return null;
-      const objectUrl=URL.createObjectURL(file);
-      try{
-        const img=new Image(); img.src=objectUrl; await img.decode();
-        const scale=Math.min(1,480/Math.max(img.naturalWidth,img.naturalHeight));
-        const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
-        const ctx=canvas.getContext('2d');ctx.filter='blur(12px)';ctx.drawImage(img,0,0,canvas.width,canvas.height);
-        const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.58));
-        return blob;
-      }finally{URL.revokeObjectURL(objectUrl);}
-    },
-    async uploadMedia(file,meta,isReel=false){
-      const session=await this.session(); if(!session) throw new Error('Faça login.');
-      const privateFile=isReel?!meta.free:meta.access!=='free'; const bucket=privateFile?'aylas-private':'aylas-public';
-      const clean=file.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'-');
-      const path=`${session.user.id}/${Date.now()}-${clean}`;
-      const up=await client.storage.from(bucket).upload(path,file,{upsert:false,contentType:file.type}); if(up.error) throw up.error;
-      let preview_bucket=null,preview_path=null;
-      if(!isReel && privateFile && file.type.startsWith('image/')){
-        try{
-          const blob=await this.makeBlurPreview(file);
-          if(blob){preview_bucket='aylas-public';preview_path=`previews/${session.user.id}/${Date.now()}-preview.jpg`;
-            const pu=await client.storage.from(preview_bucket).upload(preview_path,blob,{upsert:false,contentType:'image/jpeg'});
-            if(pu.error) throw pu.error;
-          }
-        }catch(err){await client.storage.from(bucket).remove([path]);throw new Error('Não foi possível criar a prévia desfocada: '+err.message);}
-      }
-      const table=isReel?'reels':'media';
-      const maxQ=await client.from(table).select('sort_order').order('sort_order',{ascending:false}).limit(1);
-      if(maxQ.error && !/sort_order/i.test(maxQ.error.message)) { await client.storage.from(bucket).remove([path]); throw maxQ.error; }
-      const nextOrder=(maxQ.data?.[0]?.sort_order||0)+1;
-      const row=isReel?{title:meta.title,storage_bucket:bucket,storage_path:path,is_free:!!meta.free,published:true,sort_order:nextOrder}:{title:meta.title,type:file.type.startsWith('video/')?'video':'photo',album:meta.album||'Novidades',access:meta.access||'subs',price:Number(meta.price)||0,storage_bucket:bucket,storage_path:path,preview_bucket,preview_path,is_new:true,published:true,sort_order:nextOrder};
-      const ins=await client.from(table).insert(row).select().single();
-      if(ins.error){await client.storage.from(bucket).remove([path]);if(preview_path)await client.storage.from(preview_bucket).remove([preview_path]);throw ins.error;} return ins.data;
-    },
-    async removeMedia(row,isReel=false){
-      const table=isReel?'reels':'media'; const r=await client.from(table).delete().eq('id',row.id);if(r.error)throw r.error;
-      if(row.storage_bucket&&row.storage_path){const d=await client.storage.from(row.storage_bucket).remove([row.storage_path]);if(d.error)console.warn(d.error);}if(row.preview_bucket&&row.preview_path){const d=await client.storage.from(row.preview_bucket).remove([row.preview_path]);if(d.error)console.warn(d.error);}
-    },
-    async backfillBlurPreviews(rows){
-      let count=0;
-      for(const row of rows.filter(x=>x.access!=='free'&&x.type==='photo'&&x.storage_bucket==='aylas-private'&&x.storage_path&&!x.preview_path)){
-        const dl=await client.storage.from(row.storage_bucket).download(row.storage_path);if(dl.error)throw dl.error;
-        const blob=await this.makeBlurPreview(dl.data);if(!blob)continue;
-        const session=await this.session();const previewPath=`previews/${session.user.id}/${Date.now()}-${crypto.randomUUID()}.jpg`;
-        const up=await client.storage.from('aylas-public').upload(previewPath,blob,{upsert:false,contentType:'image/jpeg'});if(up.error)throw up.error;
-        const upd=await client.from('media').update({preview_bucket:'aylas-public',preview_path:previewPath}).eq('id',row.id);
-        if(upd.error){await client.storage.from('aylas-public').remove([previewPath]);throw upd.error;}
-        row.preview_bucket='aylas-public';row.preview_path=previewPath;count++;
-      }
-      return count;
-    },
-    async mediaUrl(row){
-      if(row.storage_bucket==='aylas-public') return client.storage.from(row.storage_bucket).getPublicUrl(row.storage_path).data.publicUrl;
-      const {data,error}=await client.storage.from(row.storage_bucket).createSignedUrl(row.storage_path,1800); if(error)throw error; return data.signedUrl;
-    }
-  };
+if(!window.supabase||!window.AYLAS_SUPABASE_URL){window.AYLAS_DB_ERROR='Supabase não carregado.';return}
+const C=window.supabase.createClient(window.AYLAS_SUPABASE_URL,window.AYLAS_SUPABASE_KEY);
+const pub=(b,p)=>C.storage.from(b).getPublicUrl(p).data.publicUrl;
+const clean=n=>n.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'-');
+const ok=r=>{if(r.error)throw r.error;return r.data};
+// Miniatura NÃO recuperável: reduz para ~28px e amplia (não depende de ctx.filter, que o Safari ignora).
+async function makePreview(file){
+ const u=URL.createObjectURL(file);let src,w,h;
+ try{
+  if(file.type.startsWith('image/')){const i=new Image();i.src=u;await i.decode();src=i;w=i.naturalWidth;h=i.naturalHeight}
+  else if(file.type.startsWith('video/')){const v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.src=u;
+   await new Promise((a,b)=>{v.onloadeddata=a;v.onerror=b});v.currentTime=Math.min(.5,(v.duration||1)/2);await new Promise(a=>{v.onseeked=a});src=v;w=v.videoWidth;h=v.videoHeight}
+  else return null;
+  const s=28/Math.max(w,h),sm=document.createElement('canvas');sm.width=Math.max(2,Math.round(w*s));sm.height=Math.max(2,Math.round(h*s));sm.getContext('2d').drawImage(src,0,0,sm.width,sm.height);
+  const k=420/Math.max(sm.width,sm.height),big=document.createElement('canvas');big.width=Math.round(sm.width*k);big.height=Math.round(sm.height*k);
+  const g=big.getContext('2d');g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(sm,0,0,big.width,big.height);
+  return await new Promise(r=>big.toBlob(r,'image/jpeg',.6));
+ }finally{URL.revokeObjectURL(u)}
+}
+const norm=m=>({...m,price:Number(m.price||0),preview_url:m.preview_bucket&&m.preview_path?pub(m.preview_bucket,m.preview_path):null,
+ url:m.storage_bucket==='aylas-public'&&m.storage_path&&(m.access==='free')?pub(m.storage_bucket,m.storage_path):null});
+const DB={client:C,pub,makePreview,norm,
+ async me(){const {data}=await C.auth.getSession();const s=data.session;if(!s)return null;
+  const {data:p}=await C.from('profiles').select('display_name,is_admin,avatar_url,email').eq('id',s.user.id).maybeSingle();
+  return {user:s.user,profile:p||{},admin:!!p?.is_admin}},
+ async settings(){return ok(await C.from('site_settings').select('*').eq('id',1).maybeSingle())},
+ async saveSettings(s){ok(await C.from('site_settings').upsert({id:1,name:s.name,handle:s.handle,bio:s.bio,accent:s.accent||'#e0489a',banner:s.banner||0,profile_image_url:s.profile_image_url||null,cover_image_url:s.cover_image_url||null,metrics:s.metrics||[],content:s.content||{},updated_at:new Date().toISOString()}))},
+ // Catálogo para visitantes: apenas views (nunca devolvem o original pago).
+ async publicCatalog(){const [s,p,m,r]=await Promise.all([C.from('site_settings').select('*').eq('id',1).maybeSingle(),C.from('plans').select('*').eq('active',true).order('sort_order'),
+   C.from('public_media_catalog').select('*').order('sort_order').order('created_at',{ascending:false}),C.from('public_reels_catalog').select('*').order('sort_order').order('created_at',{ascending:false})]);
+  return {settings:ok(s),plans:ok(p)||[],media:(ok(m)||[]).map(norm),reels:(ok(r)||[]).map(norm)}},
+ // Linhas que a RLS permite abrir a este utilizador (assinatura válida / compra paga / admin).
+ async entitled(table){const d=ok(await C.from(table).select('id,storage_bucket,storage_path').eq('published',true));return d||[]},
+ async urls(rows){const out={},priv=rows.filter(r=>r.storage_bucket==='aylas-private');
+  rows.filter(r=>r.storage_bucket==='aylas-public').forEach(r=>out[r.id]=pub(r.storage_bucket,r.storage_path));
+  if(priv.length){const d=ok(await C.storage.from('aylas-private').createSignedUrls(priv.map(r=>r.storage_path),3600));d.forEach((x,i)=>{if(x.signedUrl)out[priv[i].id]=x.signedUrl})}return out},
+ async urlFor(r){if(r.url)return r.url;const x=await this.urls([r]);return x[r.id]},
+ async createLead(p){ok(await C.from('leads').insert({email:String(p.email).trim().toLowerCase(),source:p.source||'subscription_interest',plan_id:p.plan_id||null,media_id:p.media_id||null,consent_at:new Date().toISOString(),status:'new'}))},
+ async checkout(payload){const {data}=await C.auth.getSession();if(!data.session)return {needLogin:true};
+  try{const r=await fetch('/.netlify/functions/create-checkout',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+data.session.access_token},body:JSON.stringify(payload)});
+   if(r.status===501||r.status===404)return {notConfigured:true};const j=await r.json();if(!r.ok)throw new Error(j.error||'Falha no checkout');return j}catch(e){if(e instanceof TypeError)return {notConfigured:true};throw e}},
+ // ---- admin: gestão de mídia ----
+ async list(table){return (ok(await C.from(table).select('*').order('sort_order').order('created_at',{ascending:false}))||[]).map(norm)},
+ async upload(bucket,path,blob,type){ok(await C.storage.from(bucket).upload(path,blob,{upsert:false,contentType:type||blob.type}))},
+ async rm(bucket,paths){const p=paths.filter(Boolean);if(p.length)await C.storage.from(bucket).remove(p)},
+ async addItem(table,file,meta){const me=await this.me();const paid=meta.access!=='free',bucket=paid?'aylas-private':'aylas-public';
+  const path=`${me.user.id}/${Date.now()}-${clean(file.name)}`;await this.upload(bucket,path,file);let pp=null;
+  if(paid){try{const b=await makePreview(file);if(b){pp=`previews/${me.user.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;await this.upload('aylas-public',pp,b,'image/jpeg')}}catch(e){await this.rm(bucket,[path]);throw new Error('Não foi possível criar a prévia desfocada: '+e.message)}}
+  const mx=(await C.from(table).select('sort_order').order('sort_order',{ascending:false}).limit(1)).data?.[0]?.sort_order||0;
+  const row={title:meta.title,storage_bucket:bucket,storage_path:path,preview_bucket:pp?'aylas-public':null,preview_path:pp,published:meta.published!==false,sort_order:mx+1,access:meta.access,price:meta.access==='extra'?Number(meta.price)||0:0,description:meta.description||null};
+  if(table==='media'){row.type=file.type.startsWith('video/')?'video':'photo';row.album=meta.album||'Novidades'}else{row.is_free=meta.access==='free';delete row.price}
+  try{return ok(await C.from(table).insert(row).select().single())}catch(e){await this.rm(bucket,[path]);await this.rm('aylas-public',[pp]);throw e}},
+ async update(table,id,patch){ok(await C.from(table).update(patch).eq('id',id))},
+ // Troca o tipo de acesso movendo o ficheiro entre buckets quando necessário (gratuito = público; resto = privado).
+ async setAccess(table,row,access,price){const wantPriv=access!=='free',isPriv=row.storage_bucket==='aylas-private',patch={access,price:access==='extra'?Number(price)||0:0};
+  if(table==='reels'){patch.is_free=access==='free';delete patch.price}
+  if(wantPriv!==isPriv){const nb=wantPriv?'aylas-private':'aylas-public',dl=ok(await C.storage.from(row.storage_bucket).download(row.storage_path));
+   const np=`${row.storage_path.split('/')[0]}/${Date.now()}-${row.storage_path.split('/').pop().replace(/^\d+-/,'')}`;await this.upload(nb,np,dl,dl.type);
+   patch.storage_bucket=nb;patch.storage_path=np;
+   if(wantPriv){const b=await makePreview(new File([dl],'f',{type:dl.type}));if(b){const pp=`previews/${np.split('/')[0]}/${Date.now()}.jpg`;await this.upload('aylas-public',pp,b,'image/jpeg');patch.preview_bucket='aylas-public';patch.preview_path=pp}}
+   else{patch.preview_bucket=null;patch.preview_path=null}
+   try{await this.update(table,row.id,patch)}catch(e){await this.rm(nb,[np]);throw e}
+   await this.rm(row.storage_bucket,[row.storage_path]);if(!wantPriv)await this.rm('aylas-public',[row.preview_path]);return}
+  await this.update(table,row.id,patch)},
+ // Substitui o ficheiro mantendo título, preço, ordem, etc.
+ async replaceFile(table,row,file){const bucket=row.storage_bucket,uid=(await this.me()).user.id,path=`${uid}/${Date.now()}-${clean(file.name)}`;await this.upload(bucket,path,file);
+  const patch={storage_path:path};if(table==='media')patch.type=file.type.startsWith('video/')?'video':'photo';let pp=null;
+  if(bucket==='aylas-private'){const b=await makePreview(file);if(b){pp=`previews/${uid}/${Date.now()}.jpg`;await this.upload('aylas-public',pp,b,'image/jpeg');patch.preview_bucket='aylas-public';patch.preview_path=pp}}
+  try{await this.update(table,row.id,patch)}catch(e){await this.rm(bucket,[path]);await this.rm('aylas-public',[pp]);throw e}
+  await this.rm(bucket,[row.storage_path]);if(pp)await this.rm('aylas-public',[row.preview_path])},
+ async remove(table,row){await C.from(table).delete().eq('id',row.id).then(ok);await this.rm(row.storage_bucket,[row.storage_path]);await this.rm('aylas-public',[row.preview_path])},
+ async uploadPublic(folder,file){const me=await this.me(),path=`${folder}/${me.user.id}/${Date.now()}-${clean(file.name)}`;await this.upload('aylas-public',path,file);return pub('aylas-public',path)},
+ // ---- planos ----
+ async plans(){return ok(await C.from('plans').select('*').order('sort_order'))||[]},
+ async savePlan(p,i){const row={name:p.name,description:p.description||'',price:Number(p.price)||0,months:Number(p.months)||1,active:!!p.active,highlighted:!!p.highlighted,badge:p.badge||null,benefits:p.benefits||[],sort_order:i};
+  if(p.id)ok(await C.from('plans').update(row).eq('id',p.id));else return ok(await C.from('plans').insert(row).select().single());return p},
+ async delPlan(id){ok(await C.from('plans').delete().eq('id',id))},
+ async setHighlight(id){ok(await C.from('plans').update({highlighted:false}).neq('id',id));ok(await C.from('plans').update({highlighted:true}).eq('id',id))},
+ // ---- membros, assinaturas, leads, pedidos ----
+ async members(){const [p,s,pl]=await Promise.all([C.from('profiles').select('id,display_name,email,is_admin,created_at').order('created_at',{ascending:false}),C.from('subscriptions').select('*'),C.from('plans').select('id,name')]);
+  const subs=ok(s)||[],names=new Map((ok(pl)||[]).map(x=>[x.id,x.name]));return (ok(p)||[]).map(m=>{const ss=subs.filter(x=>x.user_id===m.id).sort((a,b)=>b.created_at.localeCompare(a.created_at));const a=ss.find(x=>x.status==='active'&&(!x.current_period_end||new Date(x.current_period_end)>new Date()));return {...m,sub:a||ss[0]||null,valid:!!a,plan:names.get((a||ss[0])?.plan_id)||''}})},
+ async grant(uid,planId,months){const end=new Date();end.setMonth(end.getMonth()+Number(months||1));ok(await C.from('subscriptions').insert({user_id:uid,plan_id:planId,status:'active',current_period_end:end.toISOString(),source:'manual'}))},
+ async cancelSub(id){ok(await C.from('subscriptions').update({status:'canceled'}).eq('id',id))},
+ async leads(){return ok(await C.from('leads').select('*').order('created_at',{ascending:false}))||[]},
+ async updLead(id,p){ok(await C.from('leads').update(p).eq('id',id))},
+ async delLead(id){ok(await C.from('leads').delete().eq('id',id))},
+ async myOrders(uid){return ok(await C.from('orders').select('*').eq('user_id',uid).order('created_at',{ascending:false}))||[]},
+ async favs(uid){return new Set((ok(await C.from('favorites').select('media_id').eq('user_id',uid))||[]).map(x=>x.media_id))},
+ async setFav(uid,mid,on){on?ok(await C.from('favorites').insert({user_id:uid,media_id:mid})):ok(await C.from('favorites').delete().eq('user_id',uid).eq('media_id',mid))},
+ async dash(from,to){const f=from.toISOString(),t=to.toISOString(),q=(tb,sel)=>C.from(tb).select(sel).gte('created_at',f).lte('created_at',t).limit(5000);
+  const [m,s,l,o,all,allm]=await Promise.all([q('profiles','created_at'),q('subscriptions','created_at,status,plan_id'),q('leads','created_at,status'),q('orders','created_at,paid_at,amount,status,kind,plan_id,media_id'),
+   C.from('subscriptions').select('status,current_period_end'),C.from('profiles').select('id',{count:'exact',head:true})]);
+  return {members:ok(m)||[],subs:ok(s)||[],leads:ok(l)||[],orders:ok(o)||[],allSubs:ok(all)||[],totalMembers:allm.count||0}}
+};
+window.AYLAS_DB=DB;
 })();

@@ -1,48 +1,45 @@
+/* Área de membros: aplicação própria (início, galeria, reels, extras, favoritos, conta). */
 (async()=>{
-const $id=id=>document.getElementById(id);
-const fmtDate=v=>v?new Date(v).toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}):'Sem data de término definida';
-try{
- const session=await AYLAS_DB.session();
- if(!session){$id('app').innerHTML='<div class="card"><h2>Entre na sua conta</h2><p class="mut">Inicie sessão para consultar a sua assinatura e os conteúdos disponíveis.</p><a class="btn" href="index.html">Voltar ao site</a></div>';return;}
- try{if(await AYLAS_DB.isAdmin())$id('adminNav').hidden=false;}catch(_){}
- const {data:subs,error:subErr}=await AYLAS_DB.client.from('subscriptions').select('id,status,current_period_end,plan_id,created_at').eq('user_id',session.user.id).eq('status','active').order('created_at',{ascending:false});
- if(subErr)throw subErr;
- const valid=(subs||[]).find(x=>!x.current_period_end||new Date(x.current_period_end)>new Date());
- if(!valid){$id('app').innerHTML='<div class="card"><h2>Assinatura não ativa</h2><p class="mut">Não encontrámos uma assinatura ativa nesta conta. O acesso será atualizado quando uma confirmação legítima de pagamento for integrada.</p><a class="btn" href="index.html">Voltar ao Ayla’s Club</a></div>';return;}
- await loadRemoteState(false,true);
- const memberLogo=document.querySelector('.top .logo');if(memberLogo)memberLogo.textContent=S.content?.logoText||S.name||"Ayla's Club";
- const plan=S.plans.find(p=>p.id===valid.plan_id);
- const [mediaUrls,reelUrls]=await Promise.all([
-   Promise.all(S.media.filter(m=>m.access!=='extra').map(async m=>({...m,url:await AYLAS_DB.mediaUrl(m).catch(()=>null)}))),
-   Promise.all(S.reels.map(async r=>({...r,url:await AYLAS_DB.mediaUrl(r).catch(()=>null)})))
- ]);
- const media=mediaUrls.filter(m=>m.url), reels=reelUrls.filter(r=>r.url);
- let filter='all',query='',album='';
- $id('planpill').textContent=plan?`Plano ${plan.name}`:'Assinatura ativa';
- $id('si').innerHTML=ic('search');
- const end=valid.current_period_end;
- $id('app').innerHTML=`
- <section class="welcome"><div class="welcome-copy"><p class="mut sm">Bem-vinda à área de membros</p><h1>${esc(session.user.user_metadata?.display_name||'Bem-vinda!')}</h1><p class="mut sm member-email">${esc(session.user.email||'')}</p><p class="mut sm">${plan?`Plano ${esc(plan.name)} · `:''}Estado: ativa · ${end?'Válida até '+fmtDate(end):'Sem data de término registada'}</p></div><span class="pill">Assinatura ativa</span></section>
- <div class="sec"><h2>${ic('video')} Reels</h2><span class="mut sm">${reels.length} vídeos disponíveis</span></div>
- <div class="grid3" id="reelgrid">${reels.length?reels.map((r,i)=>`<div class="card"><b>${esc(r.title)}</b><video src="${esc(r.url)}" autoplay muted loop playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture oncontextmenu="return false" style="width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:16px;margin-top:10px;background:#000"></video></div>`).join(''):'<p class="empty">Ainda não existem reels disponíveis.</p>'}</div>
- <div class="sec" id="gridsec"><h2>Todas as mídias</h2><div class="chips">${[['all','Tudo'],['photo','Fotos'],['video','Vídeos']].map(x=>`<button class="chip ${x[0]==='all'?'on':''}" data-f="${x[0]}">${x[1]}</button>`).join('')}</div></div>
- <div class="chips" id="albums" style="margin-bottom:12px"></div><div class="grid4" id="grid" style="padding-bottom:50px"></div>`;
- const albums=[...new Set(media.map(m=>m.album).filter(Boolean))];
- $id('albums').innerHTML=albums.map(a=>`<button class="chip" data-al="${esc(a)}">${esc(a)}</button>`).join('');
- function draw(){
-   const rows=media.filter(m=>(filter==='all'||m.type===filter)&&(!album||m.album===album)&&(`${m.title} ${m.album}`.toLowerCase().includes(query)));
-   $$('[data-f]').forEach(b=>b.classList.toggle('on',b.dataset.f===filter));
-   $$('[data-al]').forEach(b=>b.classList.toggle('on',b.dataset.al===album));
-   $id('grid').innerHTML=rows.length?rows.map((m,i)=>`<button class="tile member-tile" data-id="${esc(m.id)}" aria-label="${esc(m.title)}">${m.type==='video'?`<video src="${esc(m.url)}" autoplay muted loop playsinline preload="metadata" controlslist="nodownload noplaybackrate" disablepictureinpicture oncontextmenu="return false"></video>`:`<img src="${esc(m.url)}" loading="lazy" alt="${esc(m.title)}">`}<span class="ft">${ic(m.type==='video'?'play':'image')}${esc(m.title)}</span></button>`).join(''):'<p class="empty">Nenhuma mídia encontrada.</p>';
- }
- document.addEventListener('click',e=>{
-   const f=e.target.closest('[data-f]');if(f){filter=f.dataset.f;draw();return;}
-   const a=e.target.closest('[data-al]');if(a){album=album===a.dataset.al?'':a.dataset.al;draw();return;}
-   const item=e.target.closest('[data-id]');if(item){const m=media.find(x=>x.id===item.dataset.id);if(m)lightbox(m);return;}
-   if(e.target.closest('#avb'))$id('menu').hidden=!$id('menu').hidden;
-   if(e.target.closest('#out'))AYLAS_DB.client.auth.signOut().then(()=>location.href='index.html');
- });
- $id('q').addEventListener('input',e=>{query=e.target.value.trim().toLowerCase();draw();});
- draw();
-}catch(err){console.error(err);$id('app').innerHTML=`<div class="card"><h2>Não foi possível carregar a área de membros</h2><p class="mut">${esc(err.message)}</p></div>`;}
+const fmt=v=>v?new Date(v).toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}):'—';
+const TABS=[['home','Início','home'],['gal','Galeria','image'],['reels','Reels','video'],['extras','Extras','tag'],['favs','Favoritos','heart'],['acc','Conta','user']];
+let tab=location.hash.slice(1)||'home',CTX={sub:false,owned:new Set(),urls:{},favs:new Set()},SUB=null,ORD=[],mode='real',q='',typ='all';
+const reelsK=()=>S.reels.map(r=>({...r,kind:'reel',type:'video'}));
+const opn=m=>isOpen(m,CTX);const open=()=>[...S.media,...reelsK()].filter(opn);
+const grid=(a,empty)=>`<div class="grid">${a.length?a.map(m=>tile(m,CTX)).join(''):`<p class="empty"><b>${esc(empty||tv('memberEmpty'))}</b><button class="btn sub sm" data-subscribe>${t('subscribeButton')}</button></p>`}</div>`;
+const sec=(h,x)=>`<div class="sec"><h2>${h}</h2></div>${x}`;
+const rail=a=>a.length?`<div class="rail">${a.map(m=>tile(m,CTX)).join('')}</div>`:'';
+function loginScreen(){$('#app').innerHTML=`<div class="wrap" style="max-width:460px;padding-top:8vh"><div class="card" style="text-align:center"><h1>${t('memberWelcome')}</h1><p class="mut" style="margin:10px 0 18px">Entre para aceder à sua área de membro.</p><button class="btn full" id="li">${t('loginButton')}</button><p class="sm mut" style="margin-top:12px"><a href="index.html">Voltar ao site</a></p></div></div>`;$('#li').onclick=()=>authModal({onDone:()=>location.reload()});authModal({onDone:()=>location.reload()})}
+function view(){const n=ME.profile.display_name||ME.user.email.split('@')[0],valid=!!(CTX.sub);const recent=[...S.media].sort((a,b)=>b.created_at.localeCompare(a.created_at));
+ const hero=`<div class="mhero"><div class="avatar">${ME.profile.avatar_url?`<img src="${esc(ME.profile.avatar_url)}" alt="">`:esc(n.slice(0,2).toUpperCase())}</div><div style="flex:1;min-width:200px"><span class="pill">${valid?ic('star')+' '+t('memberVip'):'Sem assinatura ativa'}</span><h1 style="margin:6px 0 2px">${t('memberWelcome')}, ${esc(n)}</h1><p class="sm" style="color:#eadde4">${valid?`Plano ${esc(S.plans.find(p=>p.id===SUB?.plan_id)?.name||'ativo')} · válida até ${SUB.current_period_end?fmt(SUB.current_period_end):'sem data de término'}`:t('memberNoSub')}</p></div>${valid?'':`<button class="btn sub" data-subscribe>${t('subscribeButton')}</button>`}</div>`;
+ const v={home:()=>hero+sec(t('memberNews'),rail(open().filter(m=>m.is_new).slice(0,10)))+sec(t('memberRecent'),grid(recent.filter(opn).slice(0,8),'Quando houver novas publicações elas aparecem aqui.'))+sec(t('memberExclusive'),rail(S.media.filter(m=>m.access==='subs'&&opn(m)).slice(0,10)))+sec(t('memberReels'),rail(reelsK().filter(opn).slice(0,10)))+sec(t('memberRecs'),rail([...open()].sort(()=>Math.random()-.5).slice(0,8))),
+ gal:()=>`<div class="row"><input id="q" type="search" placeholder="Buscar" value="${esc(q)}" style="flex:1;min-width:160px"><div class="chips">${[['all','Tudo'],['photo','Fotos'],['video','Vídeos']].map(([x,l])=>`<button class="chip ${typ===x?'on':''}" data-ty="${x}">${l}</button>`).join('')}</div></div>${grid(S.media.filter(m=>(typ==='all'||m.type===typ)&&(m.title+' '+(m.album||'')).toLowerCase().includes(q)))}`,
+ reels:()=>grid(reelsK()),
+ extras:()=>{const ex=S.media.filter(m=>m.access==='extra');return sec('Adquiridos',grid(ex.filter(opn),'Ainda não adquiriu nenhum extra.'))+sec('Disponíveis para desbloquear',grid(ex.filter(m=>!opn(m)),'Nenhum extra disponível por agora.'))},
+ favs:()=>grid([...S.media,...reelsK()].filter(m=>CTX.favs.has(m.id)),'Toque no ♥ de um conteúdo para o guardar aqui.'),
+ acc:()=>`<div class="card"><h3>Perfil</h3><label class="fld">Nome<input id="dn" value="${esc(ME.profile.display_name||'')}"></label><label class="fld">Foto<input type="file" id="av" accept="image/*"></label><p class="sm mut">${esc(ME.user.email)}</p><button class="btn sm" id="sv">Guardar</button></div>
+ <div class="card" style="margin-top:14px"><h3>Assinatura</h3>${SUB?`<p>Estado: <b>${valid?'ativa':'inativa'}</b><br>Plano: ${esc(S.plans.find(p=>p.id===SUB.plan_id)?.name||'—')}<br>Validade: ${fmt(SUB.current_period_end)}</p><p class="sm mut" style="margin-top:8px">A renovação e o cancelamento automáticos ficam disponíveis quando o gateway de pagamento for ativado.</p>`:`<p class="mut">Sem assinatura.</p><button class="btn sub sm" data-subscribe>${t('subscribeButton')}</button>`}</div>
+ <div class="card" style="margin-top:14px"><h3>Histórico de compras</h3>${ORD.length?`<div class="tw"><table><tbody>${ORD.map(o=>`<tr><td>${new Date(o.created_at).toLocaleDateString('pt-BR')}</td><td>${o.kind==='extra'?esc(S.media.find(m=>m.id===o.media_id)?.title||'Extra'):esc(S.plans.find(p=>p.id===o.plan_id)?.name||'Assinatura')}</td><td>${brl(o.amount)}</td><td>${esc(o.status)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="mut">Ainda sem compras.</p>'}</div>
+ <p style="margin-top:16px"><button class="btn ghost" id="out">Terminar sessão</button></p>`};
+ const adm=ME.admin?`<div class="wrap"><div class="card row" style="margin-top:12px"><b>Pré-visualização do administrador</b><select id="pm" style="max-width:260px"><option value="real" ${mode==='real'?'selected':''}>Como eu (admin)</option><option value="all" ${mode==='all'?'selected':''}>Como assinante (tudo nítido)</option><option value="none" ${mode==='none'?'selected':''}>Como visitante (tudo bloqueado)</option></select><a class="btn ghost sm" href="admin.html">Painel</a></div></div>`:'';
+ $('#app').innerHTML=adm+`<nav class="mnav" aria-label="Navegação">${TABS.map(([k,l,i])=>`<button data-tab="${k}" class="${tab===k?'on':''}">${ic(i)}${l}</button>`).join('')}</nav><div class="wrap pad">${(v[tab]||v.home)()}</div>`;accountMenu()}
+function setMode(){CTX.preview=mode==='real'?undefined:mode;if(ME.admin&&mode!=='none')CTX.sub=true}
+document.addEventListener('click',async e=>{
+ const tb=e.target.closest('[data-tab]');if(tb){tab=tb.dataset.tab;history.replaceState(null,'','#'+tab);view();scrollTo(0,0);return}
+ const ty=e.target.closest('[data-ty]');if(ty){typ=ty.dataset.ty;view();return}
+ const fv=e.target.closest('[data-fav]');if(fv){e.stopPropagation();const id=fv.dataset.fav,on=!CTX.favs.has(id);try{await AYLAS_DB.setFav(ME.user.id,id,on);on?CTX.favs.add(id):CTX.favs.delete(id);view()}catch(er){toast(er.message)}return}
+ const T=e.target.closest('[data-tile]');if(T){const k=T.dataset.k,pool=k==='reel'?reelsK():S.media,m=pool.find(x=>x.id===T.dataset.tile);if(!m)return;
+  if(opn(m)){const l=pool.filter(opn);viewer(l,l.indexOf(m),CTX)}else if(m.access==='extra')extraModal(m);else subscribeModal();return}
+ if(e.target.closest('#out'))logout('index.html');
+ if(e.target.closest('#sv')){try{let url=ME.profile.avatar_url;const f=$('#av').files[0];if(f)url=await AYLAS_DB.client.storage.from('aylas-public').upload(`avatars/${ME.user.id}/${Date.now()}-${f.name.replace(/[^\w.-]/g,'-')}`,f,{contentType:f.type}).then(r=>{if(r.error)throw r.error;return AYLAS_DB.pub('aylas-public',r.data.path)});
+  const r=await AYLAS_DB.client.from('profiles').update({display_name:$('#dn').value.trim(),avatar_url:url}).eq('id',ME.user.id);if(r.error)throw r.error;await loadMe();view();toast('Perfil guardado.')}catch(er){toast('Erro: '+er.message)}}});
+document.addEventListener('input',e=>{if(e.target.id==='q'){q=e.target.value.trim().toLowerCase();view();$('#q').focus();$('#q').setSelectionRange(q.length,q.length)}});
+document.addEventListener('change',e=>{if(e.target.id==='pm'){mode=e.target.value;CTX.sub=!!SUB&&(!SUB.current_period_end||new Date(SUB.current_period_end)>new Date());setMode();view()}});
+try{await loadMe();const r=await AYLAS_DB.publicCatalog();loadSettings(r.settings,r.plans);S.plans=r.plans;S.media=r.media;S.reels=r.reels;$('#logo').textContent=tv('logoText')||S.name;
+ if(!ME)return loginScreen();
+ const [sb,ord,favs,em,er]=await Promise.all([AYLAS_DB.client.from('subscriptions').select('*').eq('user_id',ME.user.id).order('created_at',{ascending:false}),AYLAS_DB.myOrders(ME.user.id),AYLAS_DB.favs(ME.user.id),AYLAS_DB.entitled('media'),AYLAS_DB.entitled('reels')]);
+ SUB=(sb.data||[]).find(x=>x.status==='active'&&(!x.current_period_end||new Date(x.current_period_end)>new Date()))||(sb.data||[])[0]||null;
+ CTX.sub=!!SUB&&SUB.status==='active'&&(!SUB.current_period_end||new Date(SUB.current_period_end)>new Date());ORD=ord;CTX.favs=favs;
+ // Os links dos originais só são gerados para linhas que a RLS devolveu a este utilizador.
+ CTX.urls=await AYLAS_DB.urls([...em,...er]);const emIds=new Set(em.map(x=>x.id));CTX.owned=new Set(S.media.filter(m=>m.access==='extra'&&emIds.has(m.id)).map(m=>m.id));
+ setMode();view()}catch(err){console.error(err);$('#app').innerHTML=`<div class="wrap"><div class="card" style="margin-top:20px"><h2>Não foi possível carregar</h2><p class="mut">${esc(err.message)}</p></div></div>`}
 })();
