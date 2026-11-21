@@ -1,3 +1,5 @@
+-- ARQUIVO BASE DA VERSÃO 2.0: não execute novamente para ativar Stripe.
+-- Para a integração de pagamentos, execute somente STRIPE-MIGRACAO.sql.
 -- AYLA'S CLUB 2.0 | MIGRAÇÃO INCREMENTAL (Supabase SQL Editor)
 -- NÃO apaga dados, utilizadores, a conta admin (profiles), planos, mídias, reels, assinaturas nem buckets.
 -- Idempotente: pode ser executada mais de uma vez. FAÇA BACKUP ANTES (banco + Storage).

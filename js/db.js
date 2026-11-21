@@ -82,7 +82,9 @@ const DB={client:C,pub,makePreview,norm,
  async members(){const [p,s,pl]=await Promise.all([C.from('profiles').select('id,display_name,email,is_admin,created_at').order('created_at',{ascending:false}),C.from('subscriptions').select('*'),C.from('plans').select('id,name')]);
   const subs=ok(s)||[],names=new Map((ok(pl)||[]).map(x=>[x.id,x.name]));return (ok(p)||[]).map(m=>{const ss=subs.filter(x=>x.user_id===m.id).sort((a,b)=>b.created_at.localeCompare(a.created_at));const a=ss.find(x=>x.status==='active'&&(!x.current_period_end||new Date(x.current_period_end)>new Date()));return {...m,sub:a||ss[0]||null,valid:!!a,plan:names.get((a||ss[0])?.plan_id)||''}})},
  async grant(uid,planId,months){const end=new Date();end.setMonth(end.getMonth()+Number(months||1));ok(await C.from('subscriptions').insert({user_id:uid,plan_id:planId,status:'active',current_period_end:end.toISOString(),source:'manual'}))},
- async cancelSub(id){ok(await C.from('subscriptions').update({status:'canceled'}).eq('id',id))},
+ async cancelSub(id){const sub=ok(await C.from('subscriptions').select('*').eq('id',id).single());
+  if(sub.provider==='stripe'&&String(sub.provider_ref||'').startsWith('sub_')){const {data}=await C.auth.getSession();const r=await fetch('/.netlify/functions/cancel-subscription',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+data.session.access_token},body:JSON.stringify({subscription_id:id})});const j=await r.json();if(!r.ok)throw new Error(j.error||'Falha ao cancelar assinatura');return j}
+  ok(await C.from('subscriptions').update({status:'canceled',cancel_at_period_end:false}).eq('id',id));return {ok:true,scheduled:false}},
  async leads(){return ok(await C.from('leads').select('*').order('created_at',{ascending:false}))||[]},
  async updLead(id,p){ok(await C.from('leads').update(p).eq('id',id))},
  async delLead(id){ok(await C.from('leads').delete().eq('id',id))},

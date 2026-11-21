@@ -1,25 +1,29 @@
-# Relatório — Ayla's Club 2.0
+# Relatório — Ayla's Club 2.0 + Stripe
 
-## Implementado (ficheiros reais do projeto reescritos)
-- `css/style.css` novo design system (variáveis editáveis, mobile-first, navegação inferior na área de membros e no admin).
-- `js/db.js`, `js/core.js` (substitui `main.js`), `js/public.js`, `js/members.js`, `js/admin.js`; HTML das 3 páginas.
-- Site público: capa, perfil, ONLINE AGORA, bio, métricas manuais, reels, galeria com filtros (Tudo/Grátis/Exclusivos/Extras), planos com destaque e benefícios, visualizador com anterior/seguinte/zoom/swipe.
-- Área de membros: início personalizado, galeria com busca, reels, extras (adquiridos/disponíveis), favoritos persistentes, conta (perfil, avatar, assinatura, histórico de compras, sair), pré-visualização admin.
-- Admin: dashboard com dados reais e filtros de período, personalizar site, mídias (editar, substituir ficheiro mantendo dados, filtros, ordem, publicar, excluir), extras, reels, planos (benefícios, destaque, ordem, exclusão com aviso), membros (concessão/cancelamento manual), leads (estado, notas, CSV), configurações.
-- Auth: registo, login, recuperação de senha; sem redirecionamento forçado ao painel.
-- SQL: `AYLAS-CLUB-2.0-MIGRACAO.sql` (compras `orders`, RLS, Storage, views públicas).
+## Integração incluída neste pacote
 
-## Testado (executado)
-- `node --check` em todos os JS: OK.
-- Matriz de regras de desfoque (13 verificações em Node): gratuito nítido; exclusivo/extra desfocados para visitante; assinante vê exclusivo; extra só para comprador; modos do admin; preço individual no extra; tile bloqueado não expõe URL original. **Todas passaram.**
+- Checkout Stripe para planos recorrentes, plano vitalício e extras individuais.
+- Preços lidos no Supabase no servidor; nenhum valor de compra é confiado ao navegador.
+- Criação de Stripe Product/Price sob demanda. Mensal usa recorrência mensal; semestral usa intervalo de seis meses; vitalício e extras são pagamento único.
+- Webhook com validação HMAC do cabeçalho `Stripe-Signature`, tolerância temporal e registro idempotente em `webhook_events`.
+- Atualização de pedidos e assinaturas após confirmação Stripe; renovações geram pedidos; falhas de pagamento suspendem o acesso até regularização.
+- Customer Portal para o membro gerir cobrança e cancelamento.
+- Cancelamento administrativo de assinatura Stripe agendado no fim do período pago; cancelamento manual continua local.
+- Preço alterado no painel cria novo Stripe Price no próximo checkout, preservando o preço de assinantes existentes.
+- SQL incremental `STRIPE-MIGRACAO.sql`, sem recriar políticas RLS ou apagar dados.
 
-## NÃO testado (limitações reais)
-- Nada foi executado contra o seu Supabase (sem rede neste ambiente): o SQL não foi corrido num Postgres; login/registo, uploads, URLs assinadas e RLS **precisam ser testados por si** com contas visitante/membro/admin.
-- Sem testes em navegador/aparelho real (layout mobile, Safari, visualizador, pré-visualização em iframe). Sem verificação de scroll horizontal.
-- Edição simultânea de textos longos e a migração de temas antigos (`themePages`) foram só revistas no código.
-- Pagamentos: não implementados (esqueletos 501). Extras não podem ser desbloqueados até existir webhook real.
-- Sem PWA completo (falta service worker e ícones), sem traduções, sem “Reordenar” por arrastar (usa setas), sem editor de textos adicionar/ocultar itens livres além dos campos listados.
-- Miniaturas desfocadas são geradas no navegador do admin; não impedem captura de ecrã de quem já tem acesso.
+## Verificações locais executadas
 
-## Pendências externas
-Gateway (escolha, aprovação do tipo de conteúdo, credenciais, webhook), URLs do Supabase Auth, domínio, ícones PWA.
+- `node --check` em todos os arquivos JavaScript: OK.
+- Teste de assinatura HMAC válida/inválida do webhook: OK.
+- Conversão dos valores R$ 19,90, R$ 49,90 e R$ 179,00 para centavos Stripe: OK.
+- Mapeamento dos estados Stripe `active`, `past_due` e `canceled`: OK.
+
+## Ainda não testado externamente
+
+- SQL no banco publicado (a migração precisa ser executada pelo proprietário).
+- Deploy e variáveis de ambiente na Netlify.
+- Checkout real em modo de teste Stripe, webhook público, Customer Portal, renovação, falha e reembolso.
+- Compatibilidade operacional com os dados atuais após deploy.
+
+**Não ativar chaves live antes de concluir todos os testes em modo test.**
