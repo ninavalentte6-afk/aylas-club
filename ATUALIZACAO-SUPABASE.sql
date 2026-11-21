@@ -51,3 +51,29 @@ select id, title, is_free, storage_bucket, storage_path
 from public.reels
 where (is_free = false and storage_bucket = 'aylas-public')
    or (is_free = true and storage_bucket <> 'aylas-public');
+
+-- 5) Pré-visualizações desfocadas para imagens privadas.
+-- O original continua no bucket privado; somente a miniatura derivada fica pública.
+alter table public.media
+  add column if not exists preview_bucket text,
+  add column if not exists preview_path text;
+
+-- O bucket aylas-public é destinado a arquivos públicos e prévias.
+-- Esta política permite leitura das miniaturas públicas; não concede leitura do bucket privado.
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='storage' and tablename='objects'
+      and policyname='Ayla public bucket preview read'
+  ) then
+    create policy "Ayla public bucket preview read"
+      on storage.objects for select
+      to anon, authenticated
+      using (bucket_id = 'aylas-public');
+  end if;
+end $$;
+
+-- 6) Conteúdo textual flexível da página.
+alter table public.site_settings
+  add column if not exists content jsonb not null default '{}'::jsonb;

@@ -82,3 +82,22 @@ Foi possível validar estaticamente a estrutura e a sintaxe JavaScript. Não foi
 ## Etapa futura: gateway de pagamento
 
 Ainda será necessário implementar uma Netlify Function ou Supabase Edge Function com segredo guardado no ambiente do servidor, criar a assinatura como `pending`, validar a notificação assinada do gateway, e só então mudar o estado para `active` e atualizar `current_period_end`. Cancelamentos, reembolsos e expirações também devem ser processados no servidor. Nunca permita que o browser confirme o pagamento ou altere diretamente o próprio estado de assinatura.
+
+
+## Atualização ULTRA — edição de conteúdo e experiência mobile
+
+Esta atualização acrescenta:
+
+- Editor de textos da página no painel em **Textos da página**. Nome, apresentação, textos do cabeçalho, estado online, secções de Reels, filtros, etiquetas de conteúdo bloqueado, títulos e introdução dos planos, benefícios, botões e rodapé ficam editáveis e são guardados em `site_settings.content` (JSONB).
+- Estado **online agora** restaurado no perfil público, com indicador verde e opção para ocultar/editar o texto no painel.
+- Pré-visualização desfocada segura para fotos exclusivas: o upload gera uma miniatura derivada e desfocada no bucket público, enquanto o original continua no bucket privado.
+- Para imagens privadas já existentes, abra **Administração → Mídias** e use **Gerar prévias desfocadas antigas** depois de executar o SQL.
+- Ajustes responsivos para telemóveis: cartões, grelha de mídias, planos, navegação e painel administrativo adaptados a ecrãs estreitos.
+
+### SQL desta atualização
+
+Execute `ATUALIZACAO-SUPABASE.sql` no SQL Editor antes de publicar. Esta versão adiciona `site_settings.content`, `media.preview_bucket` e `media.preview_path`, além da política de leitura do bucket público para miniaturas. Não apaga conteúdos nem altera o bucket privado.
+
+### Nota sobre o desfoque
+
+O site nunca descarrega o original privado para visitantes sem autorização. A miniatura desfocada é um novo ficheiro derivado, criado durante o upload ou pelo comando de conversão de prévias antigas no painel. Mídias privadas sem miniatura mostram um cartão visual genérico bloqueado até que a conversão seja executada.

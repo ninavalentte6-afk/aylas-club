@@ -1,10 +1,11 @@
-AYLA'S CLUB — NOTA DE PUBLICAÇÃO
+AYLA'S CLUB — ATUALIZAÇÃO ULTRA
 
-Consulte o README.md para os passos atualizados de configuração e publicação.
+1. Faça backup do repositório atual.
+2. Execute ATUALIZACAO-SUPABASE.sql no SQL Editor do Supabase.
+3. Substitua os arquivos do GitHub pelo conteúdo completo deste ZIP e publique na Netlify.
+4. Entre no painel > Textos da página para editar textos, rótulos, benefícios, botões e rodapé.
+5. Entre no painel > Mídias > Gerar prévias desfocadas antigas para criar miniaturas seguras das fotos privadas já existentes.
 
-IMPORTANTE:
-- Não execute novamente SUPABASE-SETUP.sql numa base de dados já existente.
-- Execute SUPABASE-SECURITY-HARDENING.sql uma vez no SQL Editor do Supabase.
-- Confirme a chave publishable em js/config.js.
-- Nunca coloque service_role/secret key no frontend.
-- O gateway de pagamento e os webhooks continuam pendentes.
+O estado online agora foi restaurado. As fotos privadas originais permanecem no bucket privado; apenas miniaturas desfocadas derivadas são públicas.
+
+Os testes realizados foram estáticos (sintaxe JavaScript, referências locais e integridade do ZIP). Não foi possível autenticar no Supabase real nem testar publicação/armazenamento na conta do projeto.
