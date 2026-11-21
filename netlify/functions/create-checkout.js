@@ -13,7 +13,6 @@ exports.handler = async event => {
     const user = await authenticate(event);
     const body = parseBody(event);
     const kind = body.kind;
-    const paymentMethod = body.payment_method === 'pix' ? 'pix' : 'card';
     if (!['subscription', 'extra'].includes(kind)) return json(400, { error: 'Tipo de compra inválido.' });
     const baseUrl = siteUrl();
     let amount, plan = null, media = null, stripePriceId = null, mode = 'payment';
@@ -25,7 +24,8 @@ exports.handler = async event => {
       amount = Number(plan.price);
       if (!(amount > 0)) return json(400, { error: 'O preço deste plano ainda não foi configurado.' });
       const months = Number(plan.months || 1);
-      mode = (months >= 9999 || paymentMethod === 'pix') ? 'payment' : 'subscription';
+      // Novo checkout: todos os novos planos são compras únicas (Pix ou cartão).
+      mode = 'payment';
     } else {
       if (!UUID.test(String(body.media_id || ''))) return json(400, { error: 'Conteúdo inválido.' });
       const rows = await sbGet('media', { id: `eq.${body.media_id}`, published: 'eq.true', access: 'eq.extra' }, 'id,title,description,price', { limit: '1' });
@@ -51,7 +51,7 @@ exports.handler = async event => {
       order_id: String(order.id),
       user_id: String(user.id),
       kind,
-      ...(plan ? { plan_id: String(plan.id), months: String(plan.months), payment_method: paymentMethod } : {}),
+      ...(plan ? { plan_id: String(plan.id), months: String(plan.months), payment_method: 'one_time' } : {}),
       ...(media ? { media_id: String(media.id) } : {})
     };
     const params = {
@@ -66,27 +66,18 @@ exports.handler = async event => {
       'line_items[0][quantity]': '1'
     };
     if (user.email) params.customer_email = user.email;
-    if (mode === 'payment' && paymentMethod === 'pix') params.expires_at = String(Math.floor(Date.now() / 1000) + 30 * 60);
     if (metadata.plan_id) params['metadata[plan_id]'] = metadata.plan_id;
     if (metadata.media_id) params['metadata[media_id]'] = metadata.media_id;
     if (metadata.months) params['metadata[months]'] = metadata.months;
     if (metadata.payment_method) params['metadata[payment_method]'] = metadata.payment_method;
 
     if (plan) {
-      if (mode === 'payment' && Number(plan.months || 1) < 9999) {
-        // A assinatura Pix é uma compra única; preços recorrentes não servem no modo payment.
-        params['line_items[0][price_data][currency]'] = 'brl';
-        params['line_items[0][price_data][unit_amount]'] = String(moneyToCents(plan.price));
-        params['line_items[0][price_data][product_data][name]'] = String(plan.name || 'Ayla\'s Club').slice(0, 250);
-      } else {
-        stripePriceId = await ensurePlanPrice(plan);
-        params['line_items[0][price]'] = stripePriceId;
-      }
-      if (mode === 'subscription') {
-        for (const [key, value] of Object.entries(metadata)) params[`subscription_data[metadata][${key}]`] = value;
-      } else {
-        for (const [key, value] of Object.entries(metadata)) params[`payment_intent_data[metadata][${key}]`] = value;
-      }
+      // Preço avulso criado a partir do valor atual do plano. Não reutilizar
+      // provider_price_id: ele pode representar um preço recorrente antigo.
+      params['line_items[0][price_data][currency]'] = 'brl';
+      params['line_items[0][price_data][unit_amount]'] = String(moneyToCents(plan.price));
+      params['line_items[0][price_data][product_data][name]'] = String(plan.name || "Ayla's Club").slice(0, 250);
+      for (const [key, value] of Object.entries(metadata)) params[`payment_intent_data[metadata][${key}]`] = value;
     } else {
       const cents = moneyToCents(media.price);
       params['line_items[0][price_data][currency]'] = 'brl';
