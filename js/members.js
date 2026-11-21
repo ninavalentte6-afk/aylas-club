@@ -4,11 +4,12 @@ const fmtDate=v=>v?new Date(v).toLocaleDateString('pt-BR',{day:'2-digit',month:'
 try{
  const session=await AYLAS_DB.session();
  if(!session){$id('app').innerHTML='<div class="card"><h2>Entre na sua conta</h2><p class="mut">Inicie sessão para consultar a sua assinatura e os conteúdos disponíveis.</p><a class="btn" href="index.html">Voltar ao site</a></div>';return;}
+ try{if(await AYLAS_DB.isAdmin())$id('adminNav').hidden=false;}catch(_){}
  const {data:subs,error:subErr}=await AYLAS_DB.client.from('subscriptions').select('id,status,current_period_end,plan_id,created_at').eq('user_id',session.user.id).eq('status','active').order('created_at',{ascending:false});
  if(subErr)throw subErr;
  const valid=(subs||[]).find(x=>!x.current_period_end||new Date(x.current_period_end)>new Date());
  if(!valid){$id('app').innerHTML='<div class="card"><h2>Assinatura não ativa</h2><p class="mut">Não encontrámos uma assinatura ativa nesta conta. O acesso será atualizado quando uma confirmação legítima de pagamento for integrada.</p><a class="btn" href="index.html">Voltar ao Ayla’s Club</a></div>';return;}
- await loadRemoteState();
+ await loadRemoteState(false,true);
  const plan=S.plans.find(p=>p.id===valid.plan_id);
  const [mediaUrls,reelUrls]=await Promise.all([
    Promise.all(S.media.filter(m=>m.access!=='extra').map(async m=>({...m,url:await AYLAS_DB.mediaUrl(m).catch(()=>null)}))),

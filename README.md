@@ -1,103 +1,93 @@
-# Ayla's Club — pacote integrado
+# Ayla's Club — pacote atualizado
 
-Este repositório contém o site público, o painel administrativo e a área de membros numa única publicação estática da Netlify. As páginas utilizam o mesmo cliente Supabase configurado em `js/config.js`.
+Este pacote mantém a arquitetura estática existente (HTML, CSS e JavaScript), Supabase Auth/Database/Storage e publicação Netlify. Não cria uma base de dados nova nem substitui os ficheiros de utilizadores existentes.
 
-## O que está ligado
+## O que esta revisão altera
 
-- **Site público (`index.html`)**: lê dados institucionais, planos ativos, catálogo publicado, métricas e Reels gratuitos do Supabase. Conteúdos exclusivos sem miniatura pública aparecem como cartões bloqueados genéricos.
-- **Painel (`admin.html`)**: exige sessão Supabase Auth e valida `profiles.is_admin`; permite gerir planos, textos, aparência, mídias e reels. A listagem de assinaturas lê os registos reais e apresenta o estado efetivo, considerando a data de término.
-- **Área de membros (`membros.html`)**: exige sessão e assinatura ativa/não expirada. Os conteúdos de assinantes são obtidos através do bucket privado e URLs assinadas temporárias.
-- **Armazenamento**: uploads administrativos são gravados em `aylas-public` para prévias grátis e `aylas-private` para conteúdos exclusivos.
-- **Pagamentos**: não há checkout, cobrança, desbloqueio de extras nem confirmação simulada. A arquitetura permanece dependente de uma função/webhook de servidor para criar/ativar assinaturas após confirmação real.
+- A página pública passa a consumir vistas de catálogo com campos limitados, em vez de ler diretamente todos os campos das tabelas de mídia.
+- O caminho do ficheiro original só é disponibilizado no catálogo público quando o conteúdo é gratuito e está no bucket `aylas-public`.
+- A área de membros carrega os registos diretamente das tabelas, sob RLS, para obter URLs assinadas dos conteúdos a que a conta tem direito.
+- As políticas conhecidas e permissivas de leitura de mídia/Reels são removidas e substituídas por regras de conteúdo gratuito, assinatura ativa ou administração.
+- O acesso aos ficheiros privados é limitado a originais associados a mídias/Reels publicados e autorizados.
+- A fotografia de perfil e a capa podem ser carregadas, substituídas e removidas no painel. As URLs são guardadas em `site_settings`; as imagens ficam no bucket público `aylas-public`.
+- O formulário de interesse em planos e o modal de interesse em extras passam a registar leads com consentimento no Supabase.
+- O painel inclui uma secção de leads com pesquisa visual básica, atualização de estado, observações, exclusão e exportação CSV.
+- O perfil público deixa de apresentar automaticamente contagens reais de fotos e vídeos. Métricas públicas são apresentadas como valores manuais editáveis.
+- Extras individuais apresentam preço e um modal próprio. O modal regista interesse, mas não desbloqueia o ficheiro: o checkout ainda não existe.
+- O menu da área de membros só apresenta a ligação administrativa quando a sessão tem o papel de administradora.
 
-## Atualização funcional (novembro de 2026)
+## O que continua pendente
 
-Esta versão acrescenta:
-- Catálogo público com cartões bloqueados para conteúdos exclusivos. Sem miniatura pública específica, é mostrada uma prévia gráfica genérica; o ficheiro privado não é descarregado nem recebe URL assinada para visitantes.
-- Reels gratuitos com player HTML5 real (`video`, `controls`, `playsinline`); Reels exclusivos permanecem bloqueados no catálogo público e só são reproduzidos após autorização.
-- Gestão de métricas manuais e automáticas no painel, persistidas em `site_settings.metrics`.
-- Ordenação de mídias e Reels com controlos de subir/descer, persistida em `sort_order`.
+Esta entrega não equivale à implementação integral de todos os requisitos do documento de especificação. Permanecem pendentes:
 
-### SQL obrigatório desta atualização
+1. Integração de gateway (Stripe, Mercado Pago ou outro), checkout de assinatura e checkout individual, webhooks assinados, idempotência, reembolsos, renovações e ativação automática. Não há cobrança funcional nesta versão.
+2. Dashboard com KPIs reais, receita, funil, gráficos por período, analytics de visualizações e desempenho dos planos.
+3. Editor visual completo com todas as cores, tipografia, estilos de botões, bordas e pré-visualização de publicação.
+4. Editor completo de textos para todos os rótulos, mensagens e termos. O editor atual cobre apenas os campos definidos em `CONTENT_FIELDS`.
+5. Edição/substituição de ficheiros de mídia existentes por uma interface dedicada. O painel existente permite editar metadados, publicar, ordenar, excluir e enviar novos ficheiros.
+6. Reels com miniaturas personalizadas, descrição e gestão completa de substituição.
+7. Miniaturas de vídeo privadas e processamento de imagem no servidor. A miniatura desfocada de fotos é gerada no browser durante o upload; isto não é um pipeline de processamento de confiança no backend.
+8. Métricas com ícones, cores e descrições individuais.
+9. Presença online real. O indicador atual é configurável/visual, não uma presença em tempo real.
+10. Remoção física automática das antigas imagens de perfil/capa no Storage após substituição ou remoção. A referência no banco é atualizada; ficheiros antigos podem precisar de limpeza manual.
+11. Fluxos completos de cadastro/recuperação e gestão de contas de membros, além do login existente.
+12. Testes de ponta a ponta com contas reais e dispositivo móvel.
 
-Antes de publicar, execute **uma vez** `ATUALIZACAO-SUPABASE.sql` no SQL Editor. O script:
-1. Adiciona `sort_order` a `media` e `reels`, se ainda não existir.
-2. Adiciona `metrics` JSONB a `site_settings`, se ainda não existir.
-3. Permite leitura dos metadados de conteúdos publicados para apresentar os cartões bloqueados. Não concede acesso aos ficheiros privados.
-4. Mantém a escrita protegida pelas permissões e políticas administrativas já existentes.
+## Pré-requisitos
 
-O SQL inclui duas consultas de diagnóstico para identificar ficheiros guardados no bucket errado. Se devolver linhas, corrija o armazenamento antes de considerar o conteúdo privado: objetos dentro de `aylas-public` são acessíveis publicamente, independentemente do RLS da tabela.
+- O projeto Supabase atual e as tabelas originais devem continuar disponíveis.
+- O setup inicial `SUPABASE-SETUP.sql` deve já ter sido executado anteriormente.
+- Devem existir os buckets `aylas-public` (público) e `aylas-private` (privado).
+- A conta administradora deve ter `profiles.is_admin = true`.
+- `js/config.js` deve conter a URL do projeto e uma chave publishable/anon apropriada. Nunca inserir `service_role` no frontend.
 
+## Migração SQL
 
-1. Confirme no Supabase que existem as tabelas `profiles`, `site_settings`, `plans`, `media`, `subscriptions` e `reels`, e os buckets `aylas-public` e `aylas-private`.
-2. **Não volte a executar `SUPABASE-SETUP.sql` sobre uma base já configurada.** Esse ficheiro é o setup inicial histórico e contém operações de criação/alteração de políticas.
-3. Se ainda não executou, aplique também `SUPABASE-SECURITY-HARDENING.sql` conforme as instruções abaixo. Não o reexecute sem necessidade. A migração não apaga dados; restringe o acesso aos conteúdos de assinantes, mantém extras bloqueados até ao gateway e limita a leitura do bucket privado a objetos associados a conteúdos autorizados.
-Antes de aplicar a migração, verifique se existem registos de conteúdo exclusivo indevidamente guardados no bucket público. Objetos num bucket público podem ser acedidos por URL sem passar pelas políticas RLS:
+1. Faça backup do projeto Supabase (banco e Storage).
+2. Execute **`AYLAS-CLUB-MIGRACAO-ULTRA.sql`** no SQL Editor do projeto Supabase existente.
+3. Esta migração é incremental: adiciona colunas, cria a tabela `leads`, cria vistas de catálogo e substitui políticas RLS conhecidas. Não elimina tabelas nem registos.
+4. Leia os dois resultados de diagnóstico no final do SQL. Se aparecer qualquer conteúdo exclusivo no bucket `aylas-public`, mova o original para `aylas-private` antes de publicar. Um objeto num bucket público pode ser descarregado por URL pública, independentemente de RLS na tabela.
+5. Não execute scripts antigos de endurecimento depois desta migração sem rever as políticas: alguns scripts anteriores recriam políticas permissivas que esta migração remove.
 
-```sql
-select id, title, access, storage_bucket, storage_path
-from public.media
-where (access in ('subs','extra') and storage_bucket = 'aylas-public')
-   or (access = 'free' and storage_bucket <> 'aylas-public');
+A migração pressupõe que a função `public.aylas_is_admin()` e as tabelas originais `profiles`, `site_settings`, `plans`, `media`, `reels` e `subscriptions` já existem.
 
-select id, title, is_free, storage_bucket, storage_path
-from public.reels
-where (is_free = false and storage_bucket = 'aylas-public')
-   or (is_free = true and storage_bucket <> 'aylas-public');
-```
+## Publicação
 
-Se a primeira condição de qualquer consulta devolver linhas, mova os ficheiros para o bucket correto antes de considerar o conteúdo privado. A migração SQL não consegue tornar privados objetos que já estejam num bucket público.
+1. Descompacte o ZIP.
+2. Faça backup do repositório GitHub atual.
+3. Substitua os ficheiros do projeto pela estrutura completa deste ZIP, mantendo `index.html`, `admin.html` e `membros.html` na raiz.
+4. Confirme que o diretório de publicação da Netlify é a raiz do repositório (`.`) e que não há build command necessário.
+5. Faça commit/push e aguarde o deploy.
+6. Teste:
+   - `/` — página pública
+   - `/admin.html` — painel
+   - `/membros.html` — área de membros
 
-4. Confirme que o utilizador administrativo existente tem `profiles.is_admin = true`.
-5. Em `js/config.js`, confirme a URL do projeto e a chave **publishable**. A chave publishable pode estar no frontend. Nunca coloque uma chave `service_role` ou secret key em ficheiros públicos.
+## Configuração e operação
 
-## Publicar no GitHub e Netlify
+- A configuração do Supabase está em `js/config.js`.
+- Para promover uma conta existente a administradora, confirme primeiro o e-mail e o ID da conta e execute uma atualização controlada em `profiles.is_admin` no Supabase.
+- Os uploads de identidade e conteúdo são feitos com a sessão administrativa e políticas Storage.
+- As imagens de perfil/capa ficam públicas. Não carregue ficheiros privados nestes campos.
+- Os leads só são registados quando o utilizador envia o formulário e assinala o consentimento.
+- O registo de lead não representa uma compra nem ativa uma assinatura.
+- Conteúdos `extra` continuam bloqueados até existir checkout e confirmação de pagamento confiável no servidor.
+- Conteúdos de assinantes exigem assinatura `active` e `current_period_end` nulo ou futuro.
+- Não conceda `service_role` ao browser, nem crie políticas `USING (true)` para operações administrativas.
 
-1. Descompacte o ZIP e carregue **todo o conteúdo** para a raiz do repositório GitHub ligado à Netlify. `index.html`, `admin.html` e `membros.html` devem ficar na raiz.
-2. Faça commit/push para o branch de produção.
-3. Na Netlify, confirme que o repositório correto está ligado e que o diretório de publicação é a raiz (`.`). Não é necessário build command para esta versão estática.
-4. Aguarde o deploy e teste:
-   - `https://aylas-club.netlify.app/`
-   - `https://aylas-club.netlify.app/admin.html`
-   - `https://aylas-club.netlify.app/membros.html`
+## Testes executados nesta revisão
 
-## Métricas e ordenação
+- Verificação de sintaxe dos seis ficheiros JavaScript com `node --check`.
+- Inspeção da estrutura do ZIP e dos caminhos locais referenciados nos HTML.
+- Revisão estática do fluxo de autorização, catálogo público, leads e Storage.
+- Revisão estática da migração SQL e das políticas RLS propostas.
 
-No painel, abra **Métricas** para criar métricas manuais ou automáticas. As fontes automáticas disponíveis são fotos publicadas, vídeos publicados, Reels publicados e conteúdos exclusivos. Os valores automáticos não são editáveis. A ordem pode ser alterada com as setas no painel de Mídias e Reels; carregue em **Salvar alterações** para persistir a nova ordem.
+## Testes não executados
 
-A área pública não recebe URLs assinadas para conteúdos privados. A prévia desfocada é apenas gráfica quando não existe uma miniatura pública autorizada; não é aplicado blur ao ficheiro original privado.
+Não foi possível autenticar no Supabase real, executar a migração no banco remoto, testar as políticas com contas anon/membro/admin, enviar ficheiros para o Storage remoto, testar no domínio Netlify, validar o comportamento em iPhone/Android ou executar testes reais de checkout. Não declarar esses testes aprovados até serem realizados no ambiente do projeto.
 
-## Operação
+## Ficheiros relevantes
 
-- Crie/edite planos no painel e marque como ativos apenas planos com preço superior a zero.
-- Faça uploads de conteúdos gratuitos ou exclusivos escolhendo o tipo de acesso antes de enviar.
-- Um conteúdo `extra` permanece bloqueado e não é apresentado como desbloqueável até existir checkout real.
-- Assinaturas são apenas consultadas no painel. A ativação manual não foi exposta no frontend.
-- A expiração é aplicada pelo `current_period_end`, mesmo que o campo `status` ainda esteja como `active`.
-
-## Limites e testes
-
-Foi possível validar estaticamente a estrutura e a sintaxe JavaScript. Não foi possível autenticar no projeto Supabase, consultar os dados reais, executar uploads no Storage, validar RLS em ambiente remoto, nem testar o deploy na Netlify a partir deste ambiente. Esses testes dependem das credenciais e do ambiente externo.
-
-## Etapa futura: gateway de pagamento
-
-Ainda será necessário implementar uma Netlify Function ou Supabase Edge Function com segredo guardado no ambiente do servidor, criar a assinatura como `pending`, validar a notificação assinada do gateway, e só então mudar o estado para `active` e atualizar `current_period_end`. Cancelamentos, reembolsos e expirações também devem ser processados no servidor. Nunca permita que o browser confirme o pagamento ou altere diretamente o próprio estado de assinatura.
-
-
-## Atualização ULTRA — edição de conteúdo e experiência mobile
-
-Esta atualização acrescenta:
-
-- Editor de textos da página no painel em **Textos da página**. Nome, apresentação, textos do cabeçalho, estado online, secções de Reels, filtros, etiquetas de conteúdo bloqueado, títulos e introdução dos planos, benefícios, botões e rodapé ficam editáveis e são guardados em `site_settings.content` (JSONB).
-- Estado **online agora** restaurado no perfil público, com indicador verde e opção para ocultar/editar o texto no painel.
-- Pré-visualização desfocada segura para fotos exclusivas: o upload gera uma miniatura derivada e desfocada no bucket público, enquanto o original continua no bucket privado.
-- Para imagens privadas já existentes, abra **Administração → Mídias** e use **Gerar prévias desfocadas antigas** depois de executar o SQL.
-- Ajustes responsivos para telemóveis: cartões, grelha de mídias, planos, navegação e painel administrativo adaptados a ecrãs estreitos.
-
-### SQL desta atualização
-
-Execute `ATUALIZACAO-SUPABASE.sql` no SQL Editor antes de publicar. Esta versão adiciona `site_settings.content`, `media.preview_bucket` e `media.preview_path`, além da política de leitura do bucket público para miniaturas. Não apaga conteúdos nem altera o bucket privado.
-
-### Nota sobre o desfoque
-
-O site nunca descarrega o original privado para visitantes sem autorização. A miniatura desfocada é um novo ficheiro derivado, criado durante o upload ou pelo comando de conversão de prévias antigas no painel. Mídias privadas sem miniatura mostram um cartão visual genérico bloqueado até que a conversão seja executada.
+- `AYLAS-CLUB-MIGRACAO-ULTRA.sql` — migração incremental desta revisão.
+- `SUPABASE-SETUP.sql` — setup histórico inicial; não executar sobre uma base já configurada.
+- `ATUALIZACAO-SUPABASE.sql` e `SUPABASE-SECURITY-HARDENING.sql` — scripts anteriores; rever antes de usar, e não executar depois da nova migração sem verificar as políticas recriadas.

@@ -1,5 +1,5 @@
 let D=structuredClone(S),sec=location.hash.slice(1)||'overview',originalMedia=[],originalReels=[];
-const NAV=[['overview','Visão geral','chart'],['plans','Planos e valores','tag'],['media','Mídias','image'],['reels','Reels','video'],['metrics','Métricas','chart'],['texts','Textos da página','pen'],['look','Aparência','palette'],['subs','Assinantes','users'],['config','Configurações','cog']];
+const NAV=[['overview','Visão geral','chart'],['plans','Planos e valores','tag'],['media','Mídias','image'],['reels','Reels','video'],['metrics','Métricas','chart'],['texts','Textos da página','pen'],['look','Aparência','palette'],['subs','Assinantes','users'],['leads','Leads','users'],['config','Configurações','cog']];
 const sw=(a)=>`<label class="sw"><input type="checkbox" ${a} aria-label="Ativar"><i></i></label>`;
 const bind=(l,i,k)=>`${l!==null?`data-l="${l}" data-i="${i}"`:''} data-k="${k}"`;
 const ST={active:'Ativa',canceled:'Cancelada',pending:'Pendente',expired:'Expirada'};
@@ -12,8 +12,8 @@ metrics:()=>`<div class="card"><h2>Métricas do site</h2><p class="mut sm">Edite
 <div class="metric-editor-list">${(D.metrics||[]).map((m,i)=>`<article class="metric-editor-card">
 <div class="metric-editor-head"><b>Métrica ${i+1}</b><div><button class="ib" data-move="metrics:${i}:-1" aria-label="Subir">${ic('up')}</button><button class="ib" data-move="metrics:${i}:1" aria-label="Descer">${ic('down')}</button><button class="ib" data-del="metrics:${i}" aria-label="Excluir">${ic('trash')}</button></div></div>
 <div class="two"><label class="fld">Nome exibido<input data-l="metrics" data-i="${i}" data-k="label" value="${esc(m.label||'')}"></label>
-<label class="fld">Tipo<select data-l="metrics" data-i="${i}" data-k="kind"><option value="manual" ${m.kind!=='automatic'?'selected':''}>Manual</option><option value="automatic" ${m.kind==='automatic'?'selected':''}>Automática</option></select></label></div>
-${m.kind==='automatic'?`<label class="fld">Contagem automática<select data-l="metrics" data-i="${i}" data-k="source">${[['photos','Fotos publicadas'],['videos','Vídeos publicados'],['reels','Reels publicados'],['exclusive','Conteúdos exclusivos']].map(([v,l])=>`<option value="${v}" ${m.source===v?'selected':''}>${l}</option>`).join('')}</select><small class="mut">O valor é calculado a partir do Supabase e não pode ser digitado.</small></label>`:`<label class="fld">Valor manual<input type="number" min="0" step="1" data-l="metrics" data-i="${i}" data-k="value" value="${Number(m.value)||0}"></label>`}
+<label class="fld">Tipo<select data-l="metrics" data-i="${i}" data-k="kind"><option value="manual" selected>Manual</option></select></label></div>
+<label class="fld">Valor apresentado<input type="text" data-l="metrics" data-i="${i}" data-k="value" value="${esc(m.value??0)}"><small class="mut">O valor público é sempre controlado por si. Contagens internas de ficheiros não são publicadas automaticamente.</small></label>
 <label class="fld fld-check">Exibir no site ${sw(`data-l="metrics" data-i="${i}" data-k="visible" ${m.visible!==false?'checked':''}`)}</label>
 </article>`).join('')||'<p class="empty">Ainda não existem métricas. Use o botão abaixo para criar a primeira.</p>'}</div>
 <button class="btn ghost sm" data-add="metric" style="margin-top:14px">${ic('plus')} Adicionar métrica</button></div>`,
@@ -22,8 +22,14 @@ texts:()=>`<div class="card"><h2>Textos e conteúdo da página</h2><p class="mut
 <label class="fld">Apresentação do perfil<textarea rows="4" ${bind(null,0,'bio')}>${esc(D.bio)}</textarea></label>
 ${CONTENT_FIELDS.map(([group,fields])=>`<section class="content-editor"><h3>${esc(group)}</h3><div class="two">${fields.map(([key,label,type])=>type==='checkbox'?`<label class="fld fld-check">${esc(label)}${sw(`data-content="${key}" ${D.content?.[key]!==false?'checked':''}`)}</label>`:`<label class="fld">${esc(label)}${key==='introGreeting'?`<textarea rows="3" data-content="${key}">${esc(D.content?.[key]??CONTENT_DEFAULTS[key]??'')}</textarea>`:`<input data-content="${key}" value="${esc(D.content?.[key]??CONTENT_DEFAULTS[key]??'')}">`}</label>`).join('')}</div></section>`).join('')}
 <div class="card" id="prev"></div></div>`,
-look:()=>`<div class="card"><b>Banner</b><div class="swatches">${BANNERS.map((b,i)=>`<button style="background:${b}" class="${D.banner===i?'on':''}" data-b="${i}" aria-label="Banner ${i+1}"></button>`).join('')}</div><label class="fld" style="margin-top:20px;max-width:200px">Cor de destaque<input type="color" ${bind(null,0,'accent')} value="${D.accent}"></label><p class="mut sm" style="margin-top:14px">Arquivos são enviados ao Supabase Storage. Conteúdo grátis fica público; conteúdo de assinantes fica privado.</p></div>`,
+look:()=>`<div class="card"><b>Banner</b><div class="swatches">${BANNERS.map((b,i)=>`<button style="background:${b}" class="${D.banner===i?'on':''}" data-b="${i}" aria-label="Banner ${i+1}"></button>`).join('')}</div><label class="fld" style="margin-top:20px;max-width:200px">Cor de destaque<input type="color" ${bind(null,0,'accent')} value="${D.accent}"></label><div class="two" style="margin-top:18px">
+<label class="fld">Foto de perfil <input type="file" id="profileUpload" accept="image/*"></label>
+<label class="fld">Imagem de capa <input type="file" id="coverUpload" accept="image/*"></label>
+</div>
+<div class="two">${D.profile_image_url?`<div><img src="${esc(D.profile_image_url)}" alt="Foto de perfil atual" style="width:88px;height:88px;object-fit:cover;border-radius:50%"><button class="link sm" data-clear-image="profile_image_url">Remover foto</button></div>`:''}${D.cover_image_url?`<div><img src="${esc(D.cover_image_url)}" alt="Capa atual" style="width:100%;max-height:110px;object-fit:cover;border-radius:12px"><button class="link sm" data-clear-image="cover_image_url">Remover capa</button></div>`:''}</div>
+<p class="mut sm" style="margin-top:14px">As imagens são armazenadas no bucket público do Supabase. Não envie aqui imagens que devam permanecer privadas.</p></div>`,
 subs:()=>`<div class="card"><div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap"><input id="sq" placeholder="Buscar assinante" style="max-width:260px"><select id="ss" style="max-width:170px"><option value="">Todos</option>${Object.entries(ST).map(e=>`<option value="${e[0]}">${e[1]}</option>`).join('')}</select><span class="mut sm" style="align-self:center">Consulta em tempo real do Supabase. Pagamentos ainda não são processados.</span></div><div class="tw"><table class="stack"><thead><tr><th>Nome</th><th>Plano</th><th>Situação</th><th>Renovação</th></tr></thead><tbody id="sb"></tbody></table></div></div>`,
+leads:()=>`<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Leads</h2><p class="mut sm">Contactos que consentiram receber informações sobre planos ou conteúdos extras.</p><input id="leadSearch" placeholder="Pesquisar e-mail ou origem" style="max-width:280px"></div><button class="btn ghost sm" id="exportLeads">Exportar CSV</button></div><div class="tw"><table class="stack"><thead><tr><th>E-mail</th><th>Origem</th><th>Estado</th><th>Observações</th><th></th></tr></thead><tbody id="leadRows"><tr><td colspan="5" class="empty">A carregar leads…</td></tr></tbody></table></div></div>`,
 config:()=>`<div class="card"><h2>Configuração da plataforma</h2><p class="mut">O acesso administrativo já é protegido pelo Supabase Auth e pela permissão de administradora. A integração de pagamentos, renovação automática e avisos por e-mail será ativada na etapa do gateway.</p><button class="btn ghost sm" id="adminLogout">Sair da conta</button></div>`};
 async function drawSubs(){
  const body=$('#sb');if(!body)return;body.innerHTML='<tr><td colspan="4" class="empty">A carregar assinaturas…</td></tr>';
@@ -33,9 +39,25 @@ async function drawSubs(){
   body.innerHTML=list.length?list.map(r=>`<tr><td data-label="Nome">${esc(r.member_name)}<small class="mut" style="display:block">${esc(r.user_id)}</small></td><td data-label="Plano">${esc(r.plan_name)}</td><td data-label="Situação"><span class="st ${r.effective_status==='active'?'a':r.effective_status==='pending'?'p':'c'}">${ST[r.effective_status]||esc(r.effective_status)}</span></td><td data-label="Término">${r.current_period_end?new Date(r.current_period_end).toLocaleDateString('pt-BR'):'Não definido'}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhuma assinatura encontrada.</td></tr>';
  }catch(err){body.innerHTML=`<tr><td colspan="4" class="empty">Erro ao consultar assinaturas: ${esc(err.message)}</td></tr>`;}
 }
+let cachedLeads=[];
+async function drawLeads(){
+ const body=$('#leadRows');if(!body)return;
+ try{
+  cachedLeads=await AYLAS_DB.listLeads();
+  const q=($('#leadSearch')?.value||'').trim().toLowerCase();
+  const visible=cachedLeads.filter(l=>(l.email+' '+l.source+' '+l.status+' '+(l.notes||'')).toLowerCase().includes(q));
+  body.innerHTML=visible.length?visible.map(l=>`<tr>
+   <td data-label="E-mail">${esc(l.email)}<small class="mut" style="display:block">${new Date(l.created_at).toLocaleString('pt-BR')}</small></td>
+   <td data-label="Origem">${esc(l.source||'—')}</td>
+   <td data-label="Estado"><select data-lead-status="${l.id}">${[['new','Novo'],['contacted','Em contacto'],['interested','Interessado'],['converted','Convertido'],['not_converted','Não convertido']].map(([v,n])=>`<option value="${v}" ${l.status===v?'selected':''}>${n}</option>`).join('')}</select></td>
+   <td data-label="Observações"><textarea rows="2" data-lead-notes="${l.id}">${esc(l.notes||'')}</textarea></td>
+   <td><button class="ib" data-lead-save="${l.id}" aria-label="Guardar lead">${ic('save')}</button><button class="ib" data-lead-delete="${l.id}" aria-label="Excluir lead">${ic('trash')}</button></td>
+  </tr>`).join(''):'<tr><td colspan="5" class="empty">Ainda não existem leads registados.</td></tr>';
+ }catch(err){body.innerHTML=`<tr><td colspan="5" class="empty">Erro ao consultar leads: ${esc(err.message)}</td></tr>`;}
+}
 function prev(){const e=$('#prev');if(!e)return;e.innerHTML=`<div class="cover" style="height:90px;margin:0;background:${BANNERS[D.banner]}"></div><h2 style="margin-top:12px">${esc(D.name)}</h2><p class="mut sm">@${esc(D.handle)}</p><p style="margin-top:10px">${esc(D.bio)}</p><div class="stats"><div><b>${D.media.filter(m=>m.type==='photo').length}</b><span>Fotos</span></div><div><b>${D.media.filter(m=>m.type==='video').length}</b><span>Vídeos</span></div></div>`}
 function draw(){const n=NAV.find(x=>x[0]===sec)||NAV[0];sec=n[0];$('#side').innerHTML=`<div class="logo">Ayla's <b>Club</b><small>ADMIN</small></div>`+NAV.map(x=>`<button data-s="${x[0]}" class="${sec===x[0]?'on':''}">${ic(x[2])}${x[1]}</button>`).join('')+`<a class="vp" href="index.html">${ic('ext')} Ver minha página</a>`;
- $('#app').innerHTML=`<div class="bar"><h1>${n[1]}</h1><div style="display:flex;gap:8px"><a class="btn ghost sm vpm" href="index.html">Ver minha página</a><button class="btn" id="save">${ic('save')} Salvar alterações</button></div></div>`+VIEWS[sec]();prev();if(sec==='subs')drawSubs()}
+ $('#app').innerHTML=`<div class="bar"><h1>${n[1]}</h1><div style="display:flex;gap:8px"><a class="btn ghost sm vpm" href="index.html">Ver minha página</a><button class="btn" id="save">${ic('save')} Salvar alterações</button></div></div>`+VIEWS[sec]();prev();if(sec==='subs')drawSubs();if(sec==='leads')drawLeads()}
 document.addEventListener('click',async e=>{const t=e.target;let el;
  if(el=t.closest('[data-s]')){sec=el.dataset.s;history.replaceState(null,'','#'+sec);draw()}
  else if(el=t.closest('[data-b]')){D.banner=+el.dataset.b;draw()}
@@ -44,12 +66,27 @@ document.addEventListener('click',async e=>{const t=e.target;let el;
  else if(t.closest('[data-add]')){if(t.closest('[data-add]').dataset.add==='metric'){D.metrics=D.metrics||[];D.metrics.push({id:crypto.randomUUID(),label:'Nova métrica',kind:'manual',value:0,visible:true,sort_order:D.metrics.length});sec='metrics';draw();}else{D.plans.push({id:'p'+Date.now(),name:'Novo plano',desc:'',price:0,months:1,active:false});draw();}}
  else if(t.closest('#reset')){localStorage.removeItem(KEY);location.reload()}
  else if(t.closest('#makePreviews')){try{const n=await AYLAS_DB.backfillBlurPreviews(D.media);await loadRemoteState(true);D=structuredClone(S);draw();toast(`${n} prévias desfocadas criadas.`);}catch(err){toast('Erro ao gerar prévias: '+err.message);}}
-  else if(t.closest('#adminLogout')){AYLAS_DB.client.auth.signOut().then(()=>location.href='index.html')}
+  else if(el=t.closest('[data-clear-image]')){D[el.dataset.clearImage]='';try{await AYLAS_DB.saveSettings(D);await loadRemoteState(true);D=structuredClone(S);draw();toast('Imagem removida do perfil.');}catch(err){toast('Erro ao remover imagem: '+err.message);}}
+ else if(el=t.closest('[data-lead-save]')){const id=el.dataset.leadSave;try{await AYLAS_DB.updateLead(id,{status:$(`[data-lead-status="${id}"]`)?.value,notes:$(`[data-lead-notes="${id}"]`)?.value||''});toast('Lead atualizado.');}catch(err){toast('Erro ao guardar lead: '+err.message);}}
+ else if(el=t.closest('[data-lead-delete]')){if(confirm('Excluir este lead?')){try{await AYLAS_DB.deleteLead(el.dataset.leadDelete);await drawLeads();toast('Lead excluído.');}catch(err){toast('Erro ao excluir lead: '+err.message);}}}
+ else if(t.closest('#exportLeads')){const rows=cachedLeads;const csv=[['email','source','status','notes','created_at'],...rows.map(x=>[x.email,x.source,x.status,x.notes,x.created_at])].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\\r\\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='aylas-club-leads.csv';a.click();URL.revokeObjectURL(a.href);}
+ else if(t.closest('#adminLogout')){AYLAS_DB.client.auth.signOut().then(()=>location.href='index.html')}
  else if(t.closest('#save')){saveAdmin().catch(err=>toast('Erro ao salvar: '+err.message));}});
-document.addEventListener('input',e=>{const t=e.target,d=t.dataset;if(t.id==='sq'||t.id==='ss'){drawSubs();return;}if(t.dataset.content){D.content=D.content||{};D.content[t.dataset.content]=t.type==='checkbox'?t.checked:t.value;return;}if(!d.k)return;const v=t.type==='checkbox'?t.checked:t.type==='number'?parseFloat(t.value)||0:t.value;(d.l?D[d.l][+d.i]:d.o?D[d.o]:D)[d.k]=v;if(d.k==='accent')document.documentElement.style.setProperty('--ac',v);prev()});
-document.addEventListener('change',async e=>{const t=e.target;if(t.dataset?.content){D.content=D.content||{};D.content[t.dataset.content]=t.type==='checkbox'?t.checked:t.value;return;}if(t.dataset?.k){const d=t.dataset,v=t.type==='checkbox'?t.checked:t.type==='number'?parseFloat(t.value)||0:t.value;(d.l?D[d.l][+d.i]:D)[d.k]=v;return;}if(t.id==='up'&&t.files[0]){const f=t.files[0];try{await AYLAS_DB.uploadMedia(f,{title:f.name.replace(/\.[^.]+$/,''),access:$('#upAccess')?.value||'subs',album:ALBUMS[0],price:0});await loadRemoteState(true);D=structuredClone(S);originalMedia=structuredClone(D.media);draw();toast('Mídia enviada e salva no Supabase.');}catch(err){toast('Falha no upload: '+err.message);}}
+document.addEventListener('input',e=>{const t=e.target,d=t.dataset;if(t.id==='sq'||t.id==='ss'){drawSubs();return;}if(t.id==='leadSearch'){drawLeads();return;}if(t.dataset.content){D.content=D.content||{};D.content[t.dataset.content]=t.type==='checkbox'?t.checked:t.value;return;}if(!d.k)return;const v=t.type==='checkbox'?t.checked:t.type==='number'?parseFloat(t.value)||0:t.value;(d.l?D[d.l][+d.i]:d.o?D[d.o]:D)[d.k]=v;if(d.k==='accent')document.documentElement.style.setProperty('--ac',v);prev()});
+document.addEventListener('change',async e=>{const t=e.target;if(t.dataset?.content){D.content=D.content||{};D.content[t.dataset.content]=t.type==='checkbox'?t.checked:t.value;return;}if(t.dataset?.k){const d=t.dataset,v=t.type==='checkbox'?t.checked:t.type==='number'?parseFloat(t.value)||0:t.value;(d.l?D[d.l][+d.i]:D)[d.k]=v;return;}if((t.id==='profileUpload'||t.id==='coverUpload')&&t.files[0]){
+  const f=t.files[0],field=t.id==='profileUpload'?'profile_image_url':'cover_image_url';
+  if(!f.type.startsWith('image/')){toast('Selecione um ficheiro de imagem.');return;}
+  try{
+   const session=await AYLAS_DB.session();if(!session)throw new Error('Sessão expirada.');
+   const safe=f.name.replace(/[^a-zA-Z0-9._-]/g,'-'),path=`identity/${session.user.id}/${Date.now()}-${safe}`;
+   const up=await AYLAS_DB.client.storage.from('aylas-public').upload(path,f,{upsert:false,contentType:f.type});if(up.error)throw up.error;
+   D[field]=AYLAS_DB.client.storage.from('aylas-public').getPublicUrl(path).data.publicUrl;
+   await AYLAS_DB.saveSettings(D);await loadRemoteState(true);D=structuredClone(S);draw();toast('Imagem de identidade atualizada.');
+  }catch(err){toast('Não foi possível enviar a imagem: '+err.message);}
+ }
+ if(t.id==='up'&&t.files[0]){const f=t.files[0];try{await AYLAS_DB.uploadMedia(f,{title:f.name.replace(/\.[^.]+$/,''),access:$('#upAccess')?.value||'subs',album:ALBUMS[0],price:0});await loadRemoteState(true);D=structuredClone(S);originalMedia=structuredClone(D.media);draw();toast('Mídia enviada e salva no Supabase.');}catch(err){toast('Falha no upload: '+err.message);}}
  if(t.id==='upr'&&t.files[0]){const f=t.files[0];try{await AYLAS_DB.uploadMedia(f,{title:f.name.replace(/\.[^.]+$/,''),free:$('#reelFree')?.value==='true'},true);await loadRemoteState(true);D=structuredClone(S);originalReels=structuredClone(D.reels);draw();toast('Reel enviado e salvo no Supabase.');}catch(err){toast('Falha no upload: '+err.message);}}});
-async function saveAdmin(){D.media.forEach((m,i)=>m.sort_order=i);D.reels.forEach((r,i)=>r.sort_order=i);D.metrics=(D.metrics||[]).map((m,i)=>({...m,sort_order:i}));const act=D.plans.filter(p=>p.active);if(act.some(p=>!(p.price>0)))throw new Error('Planos ativos precisam de preço maior que zero.');
+async function saveAdmin(){D.media.forEach((m,i)=>m.sort_order=i);D.reels.forEach((r,i)=>r.sort_order=i);D.metrics=(D.metrics||[]).map((m,i)=>({...m,kind:'manual',sort_order:i}));const act=D.plans.filter(p=>p.active);if(act.some(p=>!(p.price>0)))throw new Error('Planos ativos precisam de preço maior que zero.');
  await AYLAS_DB.saveSettings(D);await AYLAS_DB.savePlans(D.plans);await AYLAS_DB.saveMediaRows(D.media);await AYLAS_DB.saveReelRows(D.reels);
  const nowMedia=D.media.map(x=>x.id),nowReels=D.reels.map(x=>x.id);
  for(const x of originalMedia.filter(x=>!nowMedia.includes(x.id)))await AYLAS_DB.removeMedia(x,false);

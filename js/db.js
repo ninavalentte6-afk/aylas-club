@@ -15,11 +15,46 @@
       const [settings,plans,media,reels]=await Promise.all([
         client.from('site_settings').select('*').eq('id',1).maybeSingle(),
         client.from('plans').select('*').order('sort_order'),
+        client.from('public_media_catalog').select('*').eq('published',true).order('sort_order',{ascending:true}).order('created_at',{ascending:false}),
+        client.from('public_reels_catalog').select('*').eq('published',true).order('sort_order',{ascending:true}).order('created_at',{ascending:false})
+      ]);
+      for(const r of [settings,plans,media,reels]) if(r.error) throw r.error;
+      return {settings:settings.data,plans:plans.data||[],media:media.data||[],reels:reels.data||[]};
+    },
+    async loadMember(){
+      const [settings,plans,media,reels]=await Promise.all([
+        client.from('site_settings').select('*').eq('id',1).maybeSingle(),
+        client.from('plans').select('*').order('sort_order'),
         client.from('media').select('*').eq('published',true).order('sort_order',{ascending:true}).order('created_at',{ascending:false}),
         client.from('reels').select('*').eq('published',true).order('sort_order',{ascending:true}).order('created_at',{ascending:false})
       ]);
       for(const r of [settings,plans,media,reels]) if(r.error) throw r.error;
       return {settings:settings.data,plans:plans.data||[],media:media.data||[],reels:reels.data||[]};
+    },
+    async createLead(payload){
+      const {error}=await client.from('leads').insert({
+        email:String(payload.email||'').trim().toLowerCase(),
+        source:payload.source||'subscription_interest',
+        plan_id:payload.plan_id||null,
+        media_id:payload.media_id||null,
+        consent_at:new Date().toISOString(),
+        status:'new'
+      });
+      if(error) throw error;
+      return true;
+    },
+    async listLeads(){
+      const {data,error}=await client.from('leads').select('id,email,source,plan_id,media_id,status,notes,created_at').order('created_at',{ascending:false});
+      if(error) throw error; return data||[];
+    },
+    async updateLead(id,patch){
+      const allowed={status:patch.status,notes:patch.notes};
+      const {error}=await client.from('leads').update(allowed).eq('id',id);
+      if(error) throw error;
+    },
+    async deleteLead(id){
+      const {error}=await client.from('leads').delete().eq('id',id);
+      if(error) throw error;
     },
     async loadAdmin(){
       const [settings,plans,media,reels]=await Promise.all([
@@ -44,7 +79,7 @@
       const pl=new Map((plans.data||[]).map(x=>[x.id,x.name]));
       return rows.map(x=>({...x,effective_status:x.status==='active'&&x.current_period_end&&new Date(x.current_period_end)<=new Date()?'expired':x.status,member_name:pm.get(x.user_id)||x.user_id,plan_name:pl.get(x.plan_id)||'Plano removido'}));
     },
-    async saveSettings(s){const r=await client.from('site_settings').upsert({id:1,name:s.name,handle:s.handle,bio:s.bio,accent:s.accent,banner:s.banner,metrics:Array.isArray(s.metrics)?s.metrics:[],content:s.content&&typeof s.content==='object'?s.content:{},updated_at:new Date().toISOString()});if(r.error)throw r.error;},
+    async saveSettings(s){const r=await client.from('site_settings').upsert({id:1,name:s.name,handle:s.handle,bio:s.bio,accent:s.accent,banner:s.banner,profile_image_url:s.profile_image_url||null,cover_image_url:s.cover_image_url||null,metrics:Array.isArray(s.metrics)?s.metrics:[],content:s.content&&typeof s.content==='object'?s.content:{},updated_at:new Date().toISOString()});if(r.error)throw r.error;},
     async savePlans(plans){
       const {data:old,error}=await client.from('plans').select('id'); if(error) throw error;
       const ids=plans.filter(p=>p.id && /^[0-9a-f-]{36}$/i.test(p.id)).map(p=>p.id);
@@ -53,8 +88,62 @@
         row.id=(p.id&&/^[0-9a-f-]{36}$/i.test(p.id))?p.id:crypto.randomUUID(); const r=await client.from('plans').upsert(row).select().single(); if(r.error)throw r.error; p.id=r.data.id;
       }
     },
-    async saveMediaRows(rows){ for(const m of rows){ if(!m.id || !/^[0-9a-f-]{36}$/i.test(m.id)) continue; const wanted=m.access==='free'?'aylas-public':'aylas-private'; if(m.storage_bucket!==wanted){const dl=await client.storage.from(m.storage_bucket).download(m.storage_path);if(dl.error)throw dl.error;const newPath=m.storage_path.replace(/^.*\//,'')+'-'+Date.now();const up=await client.storage.from(wanted).upload(newPath,dl.data,{upsert:false});if(up.error)throw up.error;const rm=await client.storage.from(m.storage_bucket).remove([m.storage_path]);if(rm.error)throw rm.error;m.storage_bucket=wanted;m.storage_path=newPath;} const r=await client.from('media').update({title:m.title,type:m.type,album:m.album,access:m.access,price:Number(m.price)||0,is_new:!!m.isNew,storage_bucket:m.storage_bucket,storage_path:m.storage_path,preview_bucket:m.preview_bucket||null,preview_path:m.preview_path||null,published:m.published!==false,sort_order:Number(m.sort_order)||0}).eq('id',m.id); if(r.error)throw r.error; } },
-    async saveReelRows(rows){ for(const r0 of rows){ if(!r0.id || !/^[0-9a-f-]{36}$/i.test(r0.id)) continue; const wanted=r0.free?'aylas-public':'aylas-private'; if(r0.storage_bucket!==wanted){const dl=await client.storage.from(r0.storage_bucket).download(r0.storage_path);if(dl.error)throw dl.error;const newPath=r0.storage_path.replace(/^.*\//,'')+'-'+Date.now();const up=await client.storage.from(wanted).upload(newPath,dl.data,{upsert:false});if(up.error)throw up.error;const rm=await client.storage.from(r0.storage_bucket).remove([r0.storage_path]);if(rm.error)throw rm.error;r0.storage_bucket=wanted;r0.storage_path=newPath;} const r=await client.from('reels').update({title:r0.title,is_free:!!r0.free,storage_bucket:r0.storage_bucket,storage_path:r0.storage_path,published:r0.published!==false,sort_order:Number(r0.sort_order)||0}).eq('id',r0.id); if(r.error)throw r.error; } },
+    async saveMediaRows(rows){
+      for(const m of rows){
+        if(!m.id || !/^[0-9a-f-]{36}$/i.test(m.id)) continue;
+        const oldBucket=m.storage_bucket,oldPath=m.storage_path;
+        const wanted=m.access==='free'?'aylas-public':'aylas-private';
+        let nextBucket=oldBucket,nextPath=oldPath;
+        if(oldBucket!==wanted){
+          const dl=await client.storage.from(oldBucket).download(oldPath);if(dl.error)throw dl.error;
+          nextBucket=wanted;
+          nextPath=`${oldPath.replace(/^.*\//,'')}-${Date.now()}-${crypto.randomUUID().slice(0,8)}`;
+          const up=await client.storage.from(nextBucket).upload(nextPath,dl.data,{upsert:false});if(up.error)throw up.error;
+        }
+        const r=await client.from('media').update({
+          title:m.title,type:m.type,album:m.album,access:m.access,price:Number(m.price)||0,
+          is_new:!!m.isNew,storage_bucket:nextBucket,storage_path:nextPath,
+          preview_bucket:m.preview_bucket||null,preview_path:m.preview_path||null,
+          published:m.published!==false,sort_order:Number(m.sort_order)||0
+        }).eq('id',m.id);
+        if(r.error){
+          if(nextBucket!==oldBucket) await client.storage.from(nextBucket).remove([nextPath]);
+          throw r.error;
+        }
+        m.storage_bucket=nextBucket;m.storage_path=nextPath;
+        if(nextBucket!==oldBucket){
+          const rm=await client.storage.from(oldBucket).remove([oldPath]);
+          if(rm.error) console.warn('O ficheiro antigo ficou por limpar:',rm.error);
+        }
+      }
+    },
+    async saveReelRows(rows){
+      for(const r0 of rows){
+        if(!r0.id || !/^[0-9a-f-]{36}$/i.test(r0.id)) continue;
+        const oldBucket=r0.storage_bucket,oldPath=r0.storage_path;
+        const wanted=r0.free?'aylas-public':'aylas-private';
+        let nextBucket=oldBucket,nextPath=oldPath;
+        if(oldBucket!==wanted){
+          const dl=await client.storage.from(oldBucket).download(oldPath);if(dl.error)throw dl.error;
+          nextBucket=wanted;
+          nextPath=`${oldPath.replace(/^.*\//,'')}-${Date.now()}-${crypto.randomUUID().slice(0,8)}`;
+          const up=await client.storage.from(nextBucket).upload(nextPath,dl.data,{upsert:false});if(up.error)throw up.error;
+        }
+        const r=await client.from('reels').update({
+          title:r0.title,is_free:!!r0.free,storage_bucket:nextBucket,storage_path:nextPath,
+          published:r0.published!==false,sort_order:Number(r0.sort_order)||0
+        }).eq('id',r0.id);
+        if(r.error){
+          if(nextBucket!==oldBucket) await client.storage.from(nextBucket).remove([nextPath]);
+          throw r.error;
+        }
+        r0.storage_bucket=nextBucket;r0.storage_path=nextPath;
+        if(nextBucket!==oldBucket){
+          const rm=await client.storage.from(oldBucket).remove([oldPath]);
+          if(rm.error) console.warn('O ficheiro antigo ficou por limpar:',rm.error);
+        }
+      }
+    },
     async makeBlurPreview(file){
       if(!file.type.startsWith('image/')) return null;
       const objectUrl=URL.createObjectURL(file);

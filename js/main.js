@@ -31,10 +31,10 @@ reels:[],metrics:[],content:structuredClone(CONTENT_DEFAULTS),
 liked:{},saved:{},unlocked:{},comments:{},settings:{maint:false,emails:true,twofa:false}};
 const S=structuredClone(DEF);
 const save=()=>{};
-async function loadRemoteState(includeDrafts=false){
+async function loadRemoteState(includeDrafts=false,memberMode=false){
  if(!window.AYLAS_DB) throw new Error(window.AYLAS_DB_ERROR||'Supabase não inicializado.');
- const r=includeDrafts?await AYLAS_DB.loadAdmin():await AYLAS_DB.load();
- if(r.settings){S.name=r.settings.name;S.handle=r.settings.handle;S.bio=r.settings.bio;S.accent=r.settings.accent;S.banner=r.settings.banner;S.content={...CONTENT_DEFAULTS,...(r.settings.content||{})};}
+ const r=includeDrafts?await AYLAS_DB.loadAdmin():(memberMode?await AYLAS_DB.loadMember():await AYLAS_DB.load());
+ if(r.settings){S.name=r.settings.name;S.handle=r.settings.handle;S.bio=r.settings.bio;S.accent=r.settings.accent;S.banner=r.settings.banner;S.profile_image_url=r.settings.profile_image_url||'';S.cover_image_url=r.settings.cover_image_url||'';S.content={...CONTENT_DEFAULTS,...(r.settings.content||{})};}
  S.plans=r.plans.map(p=>({id:p.id,name:p.name,desc:p.description,price:Number(p.price),months:p.months,active:p.active}));
  S.metrics=Array.isArray(r.settings?.metrics)?r.settings.metrics:[];S.content={...CONTENT_DEFAULTS,...(r.settings?.content||{})};
  S.media=r.media.map(m=>({id:m.id,title:m.title,type:m.type,album:m.album,access:m.access,price:Number(m.price),isNew:m.is_new,published:m.published,sort_order:Number(m.sort_order)||0,dur:'',storage_bucket:m.storage_bucket,storage_path:m.storage_path,preview_bucket:m.preview_bucket,preview_path:m.preview_path,preview_url:m.preview_bucket&&m.preview_path?AYLAS_DB.client.storage.from(m.preview_bucket).getPublicUrl(m.preview_path).data.publicUrl:null,url:m.access==='free'&&m.storage_bucket==='aylas-public'?AYLAS_DB.client.storage.from('aylas-public').getPublicUrl(m.storage_path).data.publicUrl:null}));
@@ -68,9 +68,17 @@ function subscribeModal(id){const pl=activePlans();let sel=id||S.selected;if(!pl
  const m=modal(`<h2>Assinar Ayla's Club</h2><p class="mut sm">Os planos já estão cadastrados. A contratação e a cobrança serão ativadas na integração do gateway.</p><form id="sf">
  ${pl.map(p=>`<label class="plan ${p.id===sel?'on':''}" style="cursor:pointer"><span><b>${esc(p.name)}</b><small class="mut">${planLine(p)}</small></span><span><b>${brl(p.price)}</b><input type="radio" name="pl" value="${p.id}" ${p.id===sel?'checked':''} hidden></span></label>`).join('')}
  <label class="fld">E-mail<input type="email" id="se" required></label><label class="chk"><input type="checkbox" id="sa" required> Li e aceito os Termos e a Política de Privacidade.</label>
- <div class="err"></div><button class="btn full">Continuar</button></form>`);
+ <div class="err"></div><button class="btn full" type="submit">Continuar</button></form>`);
  $$('.plan',m).forEach(l=>l.onclick=()=>{$$('.plan',m).forEach(x=>x.classList.remove('on'));l.classList.add('on');$('input',l).checked=true});
- $('#sf',m).onsubmit=e=>{e.preventDefault();const p=$('input[name=pl]:checked',m)?.value;toast('A contratação ainda não está disponível. O gateway será conectado na próxima etapa.');}}
+ $('#sf',m).onsubmit=async e=>{e.preventDefault();const p=$('input[name=pl]:checked',m)?.value,b=$('button[type=submit]',e.target);b.disabled=true;try{await AYLAS_DB.createLead({email:$('#se',m).value,source:'subscription_interest',plan_id:p});toast('Interesse registado. A cobrança ainda depende da integração do gateway.');closeModal();}catch(err){b.disabled=false;$('.err',m).textContent='Não foi possível registar: '+err.message;}}}
+function extraModal(item){
+ const m=modal(`<h2>${esc(item.title)}</h2><p class="mut sm">${esc(item.album||'Conteúdo exclusivo')}</p>
+ ${item.preview_url?`<img src="${esc(item.preview_url)}" alt="Prévia desfocada de ${esc(item.title)}" style="width:100%;max-height:260px;object-fit:cover;border-radius:14px;filter:none">`:`<div class="lb" style="aspect-ratio:16/9">${ic('lock')}</div>`}
+ <p style="margin:12px 0">${brl(item.price)} · compra individual</p>
+ <p class="mut sm">O desbloqueio será ativado após a integração do checkout e confirmação do pagamento. Nenhum acesso é concedido neste momento.</p>
+ <form id="extraInterest"><label class="fld">Seu e-mail<input id="extraEmail" type="email" required autocomplete="email"></label><label class="chk"><input id="extraConsent" type="checkbox" required> Aceito ser contactada sobre este conteúdo e li a Política de Privacidade.</label><button class="btn full" type="submit">Tenho interesse neste conteúdo</button></form>`);
+ $('#extraInterest',m).onsubmit=async e=>{e.preventDefault();const b=$('button[type=submit]',e.target);b.disabled=true;try{await AYLAS_DB.createLead({email:$('#extraEmail',m).value,source:'extra_interest',media_id:item.id});toast('Interesse registado. O conteúdo continua bloqueado até confirmação de pagamento.');closeModal();}catch(err){b.disabled=false;toast('Não foi possível registar o interesse: '+err.message);}};
+}
 function lightbox(it){const media=it.url?(it.type==='video'?`<video src="${esc(it.url)}" controls playsinline style="width:100%;max-height:70vh;border-radius:12px;background:#000"></video>`:`<img src="${esc(it.url)}" alt="${esc(it.title)}" style="width:100%;max-height:70vh;object-fit:contain;border-radius:12px">`):`<div class="lb" style="aspect-ratio:3/4;font-size:42px">${ic(it.type==='video'?'play':'image')}</div>`;modal(`<h2>${esc(it.title)}</h2><p class="mut sm">${esc(it.album||'')} ${it.dur?'· '+it.dur:''}</p>${media}`,true)}
 function share(){navigator.clipboard?.writeText(location.href).catch(()=>{});toast('Link copiado.')}
 document.addEventListener('click',e=>{if(e.target.closest('[data-login]'))loginModal();const s=e.target.closest('[data-subscribe]');if(s)subscribeModal(s.dataset.subscribe||null);const t=e.target.closest('[data-t]');if(t){e.preventDefault();modal(`<h2>${t.dataset.t}</h2><p class="mut" style="margin-top:8px">Documento em preparação. Adicione aqui os Termos e a Política de Privacidade antes da publicação.</p>`)}});
