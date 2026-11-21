@@ -1,4 +1,4 @@
-/* Ayla's Club — frontend inicial. A persistência remota será conectada ao Supabase. */
+/* Ayla's Club — interface ligada ao Supabase. */
 const KEY='aylas-club-state-v1';
 const ALBUMS=['Novidades','Bastidores','Coleção 01','Destaques'];
 const BANNERS=['linear-gradient(110deg,#7a1230,#4b0f55 60%,#0b090d)','linear-gradient(110deg,#b3261e,#f7931e 70%,#3a0d1a)','linear-gradient(110deg,#5b21b6,#c026d3 65%,#0b090d)','linear-gradient(110deg,#be123c,#7e22ce)'];
@@ -6,20 +6,21 @@ const TITLES=[];
 const pat=[];
 const DUR=['0:48','0:31','0:34','0:39','0:42'];
 const DEF={name:"Ayla's Club",handle:'aylasclub',bio:'Bem-vindo ao Ayla’s Club! Aqui você encontra novidades, conteúdos exclusivos e atualizações da comunidade.',
-photos:0,videos:0,likes:'0',accent:'#ff3d62',banner:0,selected:'m',heart:false,user:null,
+photos:0,videos:0,likes:'—',accent:'#ff3d62',banner:0,selected:'m',heart:false,user:null,
 plans:[{id:'m',name:'Mensal',desc:'Acesso por 30 dias',price:0,months:1,active:false},{id:'t',name:'Trimestral',desc:'Acesso por 3 meses',price:0,months:3,active:false},{id:'a',name:'Anual',desc:'Acesso por 12 meses',price:0,months:12,active:false}],
 media:[],
-reels:[],
+reels:[],metrics:[],
 liked:{},saved:{},unlocked:{},comments:{},settings:{maint:false,emails:true,twofa:false}};
-const S=Object.assign(structuredClone(DEF),JSON.parse(localStorage.getItem(KEY)||'{}'));
-const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
-async function loadRemoteState(){
+const S=structuredClone(DEF);
+const save=()=>{};
+async function loadRemoteState(includeDrafts=false){
  if(!window.AYLAS_DB) throw new Error(window.AYLAS_DB_ERROR||'Supabase não inicializado.');
- const r=await AYLAS_DB.load();
+ const r=includeDrafts?await AYLAS_DB.loadAdmin():await AYLAS_DB.load();
  if(r.settings){S.name=r.settings.name;S.handle=r.settings.handle;S.bio=r.settings.bio;S.accent=r.settings.accent;S.banner=r.settings.banner;}
  S.plans=r.plans.map(p=>({id:p.id,name:p.name,desc:p.description,price:Number(p.price),months:p.months,active:p.active}));
- S.media=r.media.map(m=>({id:m.id,title:m.title,type:m.type,album:m.album,access:m.access,price:Number(m.price),isNew:m.is_new,dur:'',storage_bucket:m.storage_bucket,storage_path:m.storage_path,url:m.storage_bucket==='aylas-public'?AYLAS_DB.client.storage.from('aylas-public').getPublicUrl(m.storage_path).data.publicUrl:null}));
- S.reels=r.reels.map(x=>({id:x.id,title:x.title,free:x.is_free,views:'',dur:'',storage_bucket:x.storage_bucket,storage_path:x.storage_path,url:x.storage_bucket==='aylas-public'?AYLAS_DB.client.storage.from('aylas-public').getPublicUrl(x.storage_path).data.publicUrl:null}));
+ S.metrics=Array.isArray(r.settings?.metrics)?r.settings.metrics:[];
+ S.media=r.media.map(m=>({id:m.id,title:m.title,type:m.type,album:m.album,access:m.access,price:Number(m.price),isNew:m.is_new,published:m.published,sort_order:Number(m.sort_order)||0,dur:'',storage_bucket:m.storage_bucket,storage_path:m.storage_path,url:m.access==='free'&&m.storage_bucket==='aylas-public'?AYLAS_DB.client.storage.from('aylas-public').getPublicUrl(m.storage_path).data.publicUrl:null}));
+ S.reels=r.reels.map(x=>({id:x.id,title:x.title,free:x.is_free,published:x.published,sort_order:Number(x.sort_order)||0,storage_bucket:x.storage_bucket,storage_path:x.storage_path,url:x.is_free&&x.storage_bucket==='aylas-public'?AYLAS_DB.client.storage.from('aylas-public').getPublicUrl(x.storage_path).data.publicUrl:null}));
  S.photos=S.media.filter(m=>m.type==='photo').length;S.videos=S.media.filter(m=>m.type==='video').length;
  applyTheme(); return S;
 }
