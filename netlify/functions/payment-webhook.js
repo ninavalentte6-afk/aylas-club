@@ -3,6 +3,7 @@ const {
   json, requiredEnv, getHeader, sbGet, sbInsert, sbPatch, stripeRequest,
   unixIso, syncStripeSubscription, verifyStripeSignature
 } = require('./lib/shared');
+const { sendConfirmedPurchase } = require('./lib/meta');
 
 async function setOrder(orderId, patch) {
   if (!orderId) return;
@@ -10,6 +11,13 @@ async function setOrder(orderId, patch) {
 }
 async function getSubscriptionId(invoice) {
   return invoice.subscription || invoice.parent?.subscription_details?.subscription || null;
+}
+async function sendPurchaseSafe(session, orderId) {
+  if (!orderId) return;
+  try {
+    const orders=await sbGet('orders',{id:`eq.${orderId}`},'id,amount,currency,status,kind',{limit:'1'});
+    if(orders[0]?.status==='paid')await sendConfirmedPurchase(session,orders[0]);
+  } catch(err){ console.error('Meta CAPI (não bloqueia pagamento):',err.message); }
 }
 async function markCheckoutPaid(session) {
   const md = session.metadata || {};
@@ -21,6 +29,7 @@ async function markCheckoutPaid(session) {
     if (session.payment_status === 'paid' || sub.status === 'active' || sub.status === 'trialing') {
       await setOrder(md.order_id, { status: 'paid', paid_at: new Date().toISOString(), provider_ref: session.id });
     }
+    if (session.payment_status === 'paid') await sendPurchaseSafe(session, md.order_id);
     return;
   }
   if (session.payment_status !== 'paid') return;
@@ -28,6 +37,8 @@ async function markCheckoutPaid(session) {
   if (!md.user_id && !guestEmail) throw new Error('Checkout sem email para reivindicar compra convidada.');
   await setOrder(md.order_id, { status: 'paid', paid_at: new Date().toISOString(), provider_ref: session.id,
     ...(!md.user_id ? { guest_email: guestEmail } : {}) });
+  // Meta é apenas telemetria: nunca altera a confirmação financeira.
+  await sendPurchaseSafe(session,md.order_id);
   // Compras sem login são vinculadas à conta somente após o email confirmado.
   if (!md.user_id) return;
   // Compra única: vitalício ou período fixo (Pix), sem renovação.

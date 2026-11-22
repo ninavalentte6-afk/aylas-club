@@ -223,3 +223,5 @@ tbody tr:hover{background:color-mix(in srgb,var(--accent) 5%,transparent)}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-snap-type:none!important}}
 .skip-link{position:absolute;left:-9999px;top:5px;z-index:120;padding:10px 14px;background:var(--card);color:var(--text)}
 .skip-link:focus{left:12px}
+
+.marketing-preferences{background:transparent;border:0;color:inherit;text-decoration:underline;cursor:pointer;font:inherit;padding:0}

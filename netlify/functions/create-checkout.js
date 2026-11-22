@@ -54,7 +54,8 @@ exports.handler = async event => {
       ...(user ? { user_id: String(user.id) } : {}),
       kind,
       ...(plan ? { plan_id: String(plan.id), months: String(plan.months), payment_method: 'one_time' } : {}),
-      ...(media ? { media_id: String(media.id) } : {})
+      ...(media ? { media_id: String(media.id) } : {}),
+      ...(body.meta_consent === 'yes' ? { meta_consent: 'yes', meta_ua: String(body.meta_ua||'').slice(0,400), meta_fbp: String(body.meta_fbp||'').slice(0,200), meta_fbc: String(body.meta_fbc||'').slice(0,200) } : {})
     };
     const params = {
       mode,
@@ -72,6 +73,7 @@ exports.handler = async event => {
     if (metadata.media_id) params['metadata[media_id]'] = metadata.media_id;
     if (metadata.months) params['metadata[months]'] = metadata.months;
     if (metadata.payment_method) params['metadata[payment_method]'] = metadata.payment_method;
+    for (const k of ['meta_consent','meta_ua','meta_fbp','meta_fbc']) if(metadata[k]) params[`metadata[${k}]`] = metadata[k];
 
     if (plan) {
       // Preço avulso criado a partir do valor atual do plano. Não reutilizar
