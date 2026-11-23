@@ -5,8 +5,33 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Segurança e atualização: arquivos estáticos devem ser revalidados.
+# Isso reduz a chance de o Safari manter uma versão antiga do site.
 [[headers]]
   for = "/*"
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# HTML não deve ser servido de uma cópia persistente do navegador.
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0"
+
+# Arquivos executáveis e estilos: pode armazenar, mas deve revalidar.
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
