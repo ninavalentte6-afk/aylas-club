@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#130e17">
-  <meta name="description" content="Conheça o Ayla's Club, uma comunidade de conteúdo exclusivo de rotina, lifestyle e ensaios sensuais não explícitos para maiores de 18 anos.">
+  <meta name="description" content="Conheça o Ayla's Club: um espaço para acompanhar novidades, rotina, lifestyle e conteúdos especiais.">
   <meta property="og:title" content="Conheça o Ayla's Club">
-  <meta property="og:description" content="Conteúdo exclusivo de lifestyle e ensaios sensuais não explícitos. Acesso destinado a maiores de 18 anos.">
+  <meta property="og:description" content="Um espaço para acompanhar a rotina, as novidades e os conteúdos especiais de Ayla.">
   <title>Conheça o Ayla's Club</title>
   <style>
     :root { color-scheme:dark; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#100c14; color:#f9f4fa }
@@ -41,11 +41,26 @@
     .glass {border:1px solid #ffffff28;background:#180f209c;backdrop-filter:blur(18px);border-radius:20px;padding:19px 22px;display:flex;gap:14px;align-items:center;justify-content:space-between}
     .glass strong {display:block;font-size:16px;margin-bottom:4px}
     .glass small {font-size:12px;color:#cdbcd1;line-height:1.4}
-    .glass b {font-size:12px;color:#f3bfdc;border:1px solid #edb0db66;border-radius:999px;padding:9px 10px;white-space:nowrap}
+    .visual-cta {font-size:12px;font-weight:750;text-decoration:none;color:#f3bfdc;border:1px solid #edb0db66;border-radius:999px;padding:10px 14px;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center}
     footer {display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid #ffffff18;padding-top:24px;padding-bottom:28px;color:#bbaabb;font-size:12px;line-height:1.6}
     footer a {color:#d7c6d8}
+    .mobile-cta {display:none}
+    .primary:focus-visible,.navlink:focus-visible,.secondary:focus-visible,.visual-cta:focus-visible,.mobile-cta:focus-visible {outline:3px solid #ffb4dd;outline-offset:3px}
     @media(max-width:800px) {main{grid-template-columns:1fr;gap:32px;padding-top:49px;padding-bottom:49px}.visual{min-height:345px}.art{min-height:165px}.monogram{font-size:135px}header{height:70px}h1{font-size:52px}}
-    @media(max-width:420px) {.shell{padding:0 18px}h1{font-size:43px}.glass{padding:15px}.glass b{display:none}}
+    @media(max-width:600px) {
+      .shell{padding:0 20px} header{height:68px} .brand{font-size:21px} .navlink{padding:10px 13px;font-size:12px}
+      main{display:flex;flex-direction:column;align-items:stretch;gap:30px;padding-top:34px;padding-bottom:88px;min-height:auto}
+      h1{font-size:clamp(39px,10.2vw,53px);margin:20px 0 16px;line-height:1.08}
+      p.lead{font-size:16px;line-height:1.65;margin-bottom:21px}
+      .chips{gap:7px;margin-bottom:23px}.chips span{font-size:12px;padding:9px 10px}
+      .actions{align-items:stretch;gap:14px}.primary{text-align:center;flex:1;padding:16px 14px}.secondary{padding:12px 2px;text-align:center}
+      .note{margin-top:17px;font-size:11px}
+      .visual{min-height:215px;padding:16px;border-radius:24px}.visualhead{font-size:10px;letter-spacing:.1em}.visualhead strong{font-size:12px}
+      .art{min-height:105px}.monogram{font-size:95px}.glass{padding:13px 15px;border-radius:15px}.glass strong{font-size:14px}.glass small{font-size:11px}.visual-cta{font-size:11px;padding:8px 10px}
+      footer{padding-top:19px;padding-bottom:95px;flex-direction:column;gap:9px}
+      .mobile-cta{display:flex;position:fixed;z-index:20;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom,0px));align-items:center;justify-content:center;text-decoration:none;background:linear-gradient(105deg,#fa9cc9,#d3a9ed);color:#240e25;font-size:15px;font-weight:800;border-radius:16px;padding:16px 18px;box-shadow:0 10px 38px #000b,0 8px 28px #d660a344}
+    }
+    @media(max-width:360px){.brand{font-size:19px}.navlink{font-size:11px;padding:9px 11px}.glass small{max-width:200px}}
     @media(prefers-reduced-motion:reduce){.primary{transition:none}}
   </style>
 </head>
@@ -53,28 +68,29 @@
   <div class="shell">
     <header>
       <a class="brand" href="/">Ayla's <span>Club</span></a>
-      <a class="navlink" href="/">Acessar site</a>
+      <a class="navlink" href="/">Entrar no clube →</a>
     </header>
     <main>
       <section aria-labelledby="headline">
         <span class="eyebrow">Um espaço exclusivo</span>
         <h1 id="headline">Um universo mais <em>próximo de Ayla.</em></h1>
-        <p class="lead">Conheça o Ayla's Club: uma plataforma de conteúdo exclusivo sobre lifestyle, momentos do dia a dia e ensaios sensuais não explícitos. Explore as opções de acesso e escolha se deseja fazer parte.</p>
-        <div class="chips"><span>Rotina e lifestyle</span><span>Conteúdo exclusivo</span><span>Ensaios sensuais não explícitos</span></div>
+        <p class="lead">Um espaço para acompanhar de perto a rotina de Ayla, conhecer novidades e descobrir conteúdos especiais. Explore o clube e encontre a experiência que combina com você.</p>
+        <div class="chips"><span>Rotina e lifestyle</span><span>Conteúdo exclusivo</span><span>Novidades e bastidores</span></div>
         <div class="actions">
-          <a class="primary" href="/">Conhecer o clube →</a>
-          <a class="secondary" href="/">Ver conteúdo e planos</a>
+          <a class="primary" href="/">Acessar o clube →</a>
+          <a class="secondary" href="/#planos">Ver planos</a>
         </div>
-        <p class="note">Destinado a maiores de 18 anos. Alguns conteúdos e funcionalidades exigem pagamento. Pagamentos e assinaturas são apresentados no site principal.</p>
+        <p class="note">Explore a página principal para conhecer os conteúdos, os planos e as condições de acesso. Alguns recursos são exclusivos para membros.</p>
       </section>
       <aside class="visual" aria-label="Apresentação visual do Ayla's Club">
         <div class="visualhead"><strong>AYLA'S CLUB</strong><span>Members experience</span></div>
         <div class="art" aria-hidden="true"><span class="monogram">A</span></div>
-        <div class="glass"><div><strong>Seu espaço, seu ritmo.</strong><small>Descubra o clube antes de escolher um plano.</small></div><b>18+</b></div>
+        <div class="glass"><div><strong>Seu espaço, seu ritmo.</strong><small>Descubra o clube antes de escolher um plano.</small></div><a class="visual-cta" href="/">Explorar →</a></div>
       </aside>
     </main>
-    <footer><span>© <span id="year">2026</span> Ayla's Club · Conteúdo para maiores de 18 anos</span><span>Você está conhecendo a mesma plataforma disponível ao público. <a href="/">Página principal</a> · <button type="button" data-marketing-preferences style="background:none;border:0;color:#d7c6d8;text-decoration:underline;cursor:pointer;font:inherit">Preferências de marketing</button></span></footer>
+    <footer><span>© <span id="year">2026</span> Ayla's Club · Todos os direitos reservados</span><span>Conheça todas as novidades no site oficial. <a href="/">Página principal</a> · <button type="button" data-marketing-preferences style="background:none;border:0;color:#d7c6d8;text-decoration:underline;cursor:pointer;font:inherit">Preferências de marketing</button></span></footer>
   </div>
+  <a class="mobile-cta" href="/" aria-label="Acessar o site principal do Ayla's Club">Acessar o clube →</a>
   <script src="js/marketing.js?v=20261123-cache1"></script>
   <script>document.getElementById('year').textContent=String(new Date().getFullYear());</script>
 </body>
